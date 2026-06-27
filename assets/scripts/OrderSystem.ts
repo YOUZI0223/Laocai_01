@@ -2,7 +2,7 @@ import {
     _decorator, Component, Node, UITransform, Graphics, Color, Label, Vec3,
     Sprite, SpriteFrame,
 } from 'cc';
-import { DishType, DISH_META, OrderSpec, ORDER_COUNT, LevelData } from './LevelConfig';
+import { DishType, DISH_META, OrderSpec, ORDER_COUNT, LevelData, PoolPickStrategy } from './LevelConfig';
 
 const { ccclass, property } = _decorator;
 
@@ -37,7 +37,7 @@ export class OrderSystem extends Component {
     private _pool: OrderSpec[] = [];
     private _totalOrderCount: number = 0;
     private _completedCount: number = 0;
-    private _pickStrategy: 'sequential' | 'random' = 'sequential';
+    private _pickStrategy: PoolPickStrategy = PoolPickStrategy.Sequential;
 
     onLoad() {
         const ui = this.getComponent(UITransform) ?? this.addComponent(UITransform);
@@ -128,7 +128,7 @@ export class OrderSystem extends Component {
     private _pickFromPool(): OrderSpec | null {
         if (this._pool.length === 0) return null;
         let idx = 0;
-        if (this._pickStrategy === 'random') {
+        if (this._pickStrategy === PoolPickStrategy.Random) {
             idx = Math.floor(Math.random() * this._pool.length);
         }
         const spec = this._pool[idx];

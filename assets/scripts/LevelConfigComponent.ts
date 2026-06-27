@@ -1,0 +1,151 @@
+import { _decorator, Component, Enum } from 'cc';
+import {
+    LevelData, OrderSpec, PoolPickStrategy,
+} from './LevelConfig';
+
+const { ccclass, property } = _decorator;
+
+/**
+ * 关卡配置组件
+ * 把所有关卡参数暴露到 Cocos Inspector，方便策划可视化调整
+ * 挂载方式：在场景中新建空节点 "LevelConfig"，挂上此组件，再由 PlayableSceneBuilder 引用
+ */
+@ccclass('LevelConfigComponent')
+export class LevelConfigComponent extends Component {
+
+    // ───────── 基础 ─────────
+    @property({ tooltip: '关卡编号' })
+    levelId: number = 1;
+
+    // ───────── 订单系统 ─────────
+    @property({
+        type: [OrderSpec],
+        tooltip: '开局桌面 4 个固定订单（数组长度建议保持 4）',
+    })
+    initialOrders: OrderSpec[] = [];
+
+    @property({
+        type: [OrderSpec],
+        tooltip: '订单池：完成一单后从此池抽取补到空缺位置（抽完即移除，不重复）',
+    })
+    orderPool: OrderSpec[] = [];
+
+    @property({
+        type: Enum(PoolPickStrategy),
+        tooltip: '订单池抽取策略：Sequential=按顺序抽，Random=随机抽',
+    })
+    poolPickStrategy: PoolPickStrategy = PoolPickStrategy.Sequential;
+
+    // ───────── 食材生成 ─────────
+    @property({
+        tooltip: '开局一次性投入锅内的食材数量。总食材=(initialOrders+orderPool).length×3',
+        range: [0, 100, 1],
+        slide: true,
+    })
+    initialBowlSpawnCount: number = 18;
+
+    @property({
+        tooltip: '每次补料投入的食材数量',
+        range: [1, 20, 1],
+        slide: true,
+    })
+    refillBatchSize: number = 6;
+
+    @property({
+        tooltip: '锅内剩余食材 ≤ 此值时触发一次 refill',
+        range: [0, 30, 1],
+        slide: true,
+    })
+    refillThreshold: number = 8;
+
+    // ───────── 碰撞结算 ─────────
+    @property({
+        tooltip: '每帧占位分离迭代次数 [2~6]',
+        range: [1, 8, 1],
+        slide: true,
+    })
+    resolveIterations: number = 3;
+
+    @property({
+        tooltip: '单次迭代单颗食材最大位移上限（像素）',
+        range: [1, 50, 1],
+        slide: true,
+    })
+    maxPushPerIter: number = 14;
+
+    @property({ tooltip: '允许的轻微重叠量（像素）' })
+    overlapTolerance: number = 2;
+
+    @property({ tooltip: '锅体有效区域内缩量（像素）' })
+    bowlEdgeInset: number = 4;
+
+    // ───────── 生成节奏 ─────────
+    @property({
+        tooltip: '初始投放时相邻食材上浮动画错开间隔（秒）',
+        range: [0, 0.2, 0.005],
+        slide: true,
+    })
+    spawnStagger: number = 0.025;
+
+    @property({
+        tooltip: '补料时相邻食材上浮动画错开间隔（秒）',
+        range: [0, 0.3, 0.01],
+        slide: true,
+    })
+    refillStagger: number = 0.08;
+
+    @property({
+        tooltip: '初始投放散点时食材间最小距离系数',
+        range: [0.5, 1.2, 0.05],
+        slide: true,
+    })
+    scatterMinDistFactor: number = 0.85;
+
+    @property({
+        tooltip: '初始投放有效半径系数（乘以 bowlRadius）',
+        range: [0.3, 1.0, 0.02],
+        slide: true,
+    })
+    spawnRadiusFactor: number = 0.78;
+
+    @property({
+        tooltip: '补料有效半径系数（乘以 bowlRadius）',
+        range: [0.3, 1.0, 0.02],
+        slide: true,
+    })
+    refillRadiusFactor: number = 0.60;
+
+    // ───────── 道具 ─────────
+    @property({
+        tooltip: '关卡内可使用的 Shuffle 道具次数',
+        range: [0, 10, 1],
+        slide: true,
+    })
+    shuffleUses: number = 3;
+
+    /**
+     * 将 Inspector 数据组装成 LevelData 对象
+     * 供 PlayableSceneBuilder 启动时调用
+     */
+    toLevelData(): LevelData {
+        return {
+            id: this.levelId,
+            initialOrders: this.initialOrders,
+            orderPool: this.orderPool,
+            poolPickStrategy: this.poolPickStrategy,
+            initialBowlSpawnCount: this.initialBowlSpawnCount,
+            refillBatchSize: this.refillBatchSize,
+            refillThreshold: this.refillThreshold,
+            resolveIterations: this.resolveIterations,
+            maxPushPerIter: this.maxPushPerIter,
+            overlapTolerance: this.overlapTolerance,
+            bowlEdgeInset: this.bowlEdgeInset,
+            spawnStagger: this.spawnStagger,
+            refillStagger: this.refillStagger,
+            scatterMinDistFactor: this.scatterMinDistFactor,
+            spawnRadiusFactor: this.spawnRadiusFactor,
+            refillRadiusFactor: this.refillRadiusFactor,
+            shuffleUses: this.shuffleUses,
+        };
+    }
+}

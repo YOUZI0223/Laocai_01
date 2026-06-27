@@ -10,7 +10,8 @@ import { BowlSpawner } from './BowlSpawner';
 import { SlotBar, SlotEvent } from './SlotBar';
 import { OrderSystem, OrderEvent } from './OrderSystem';
 import { DishItem } from './DishItem';
-import { DishType, DISH_META, LEVEL_1, ORDER_COUNT } from './LevelConfig';
+import { DishType, DISH_META, LEVEL_1, LevelData, ORDER_COUNT } from './LevelConfig';
+import { LevelConfigComponent } from './LevelConfigComponent';
 
 const { ccclass, property } = _decorator;
 
@@ -19,6 +20,13 @@ const DESIGN_H = 1704;
 
 @ccclass('PlayableSceneBuilder')
 export class PlayableSceneBuilder extends Component {
+
+    // ───────────────── 关卡配置槽 ─────────────────
+    @property({
+        type: LevelConfigComponent,
+        tooltip: '关卡配置组件（拖入场景中挂载了 LevelConfigComponent 的节点）；留空则使用代码中的 LEVEL_1 默认值',
+    })
+    levelConfig: LevelConfigComponent | null = null;
 
     // ───────────────── 美术槽（Inspector 中可拖入）─────────────────
     // 背景
@@ -102,6 +110,11 @@ export class PlayableSceneBuilder extends Component {
     private _shuffleLabel: Label | null = null;
     private _shuffleRemaining: number = 0;
 
+    /** 优先用 Inspector 配置；未挂组件则 fallback 到代码 LEVEL_1。 */
+    private get _level(): LevelData {
+        return this.levelConfig ? this.levelConfig.toLevelData() : LEVEL_1;
+    }
+
     onLoad() {
         this._buildBackground();
         this._gm = this.node.addComponent(GameManager);
@@ -117,11 +130,12 @@ export class PlayableSceneBuilder extends Component {
     }
 
     start() {
-        this._gm!.startLevel(LEVEL_1);
-        this._orders!.init(LEVEL_1);
+        const levelData = this._level;
+        this._gm!.startLevel(levelData);
+        this._orders!.init(levelData);
         const allOrderTypes = this._orders!.getAllPendingTypes();
-        this._spawner!.spawnInitial(LEVEL_1, allOrderTypes);
-        this._shuffleRemaining = LEVEL_1.shuffleUses;
+        this._spawner!.spawnInitial(levelData, allOrderTypes);
+        this._shuffleRemaining = levelData.shuffleUses;
         this._refreshShuffleLabel();
     }
 
@@ -372,8 +386,9 @@ export class PlayableSceneBuilder extends Component {
         const host = this._addUI(this.node, 'bowl', radius * 2 + 30, radius * 2 + 30, -DESIGN_H * 0.5 + radius + 220);
         const bowl = host.addComponent(BowlController);
         bowl.radius = radius;
-        bowl.refillThreshold = LEVEL_1.refillThreshold;
-        bowl.applyLevelConfig(LEVEL_1);
+        const levelData = this._level;
+        bowl.refillThreshold = levelData.refillThreshold;
+        bowl.applyLevelConfig(levelData);
         this._bowl = bowl;
         bowl.applyBowlSkin(this.bowlSprite, this.waterSprite, this.waterPrefab);
 

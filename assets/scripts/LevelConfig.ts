@@ -1,4 +1,5 @@
-import { Color } from 'cc';
+import { Color, _decorator, Enum } from 'cc';
+const { ccclass, property } = _decorator;
 
 export enum DishType {
     Cabbage = 0,    // 卷心菜  浅绿
@@ -78,9 +79,18 @@ export const DISH_META: ReadonlyArray<DishMeta> = [
       hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 14, hitSwingDuration: 0.50 },
 ];
 
-export interface OrderSpec {
-    type: DishType;
-    need: number;
+@ccclass('OrderSpec')
+export class OrderSpec {
+    @property({ type: Enum(DishType), tooltip: '订单要求的食材类型' })
+    type: DishType = DishType.Cabbage;
+
+    @property({ tooltip: '订单需要的数量' })
+    need: number = 3;
+}
+
+export enum PoolPickStrategy {
+    Sequential = 0,
+    Random = 1,
 }
 
 export interface LevelData {
@@ -99,10 +109,10 @@ export interface LevelData {
 
     /**
      * 池子抽取策略
-     * sequential：按池中顺序依次抽取
-     * random：随机抽（已抽过不再抽）
+     * Sequential：按池中顺序依次抽取
+     * Random：随机抽（已抽过不再抽）
      */
-    poolPickStrategy: 'sequential' | 'random';
+    poolPickStrategy: PoolPickStrategy;
 
     // ── 食材生成 ───────────────────────────────────────────
     /**
@@ -152,22 +162,22 @@ export const LEVEL_1: LevelData = {
 
     // 开局 4 个订单
     initialOrders: [
-        { type: DishType.Cabbage,  need: 3 },
-        { type: DishType.Broccoli, need: 3 },
-        { type: DishType.Avocado,  need: 3 },
-        { type: DishType.Cilantro, need: 3 },
+        Object.assign(new OrderSpec(), { type: DishType.Cabbage,  need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.Broccoli, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.Avocado,  need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.Cilantro, need: 3 }),
     ],
 
     // 订单池 6 单，按顺序抽取
     orderPool: [
-        { type: DishType.BokChoy,     need: 3 },
-        { type: DishType.Okra,        need: 3 },
-        { type: DishType.Scallion,    need: 3 },
-        { type: DishType.BambooShoot, need: 3 },
-        { type: DishType.GreenPepper, need: 3 },
-        { type: DishType.Lettuce,     need: 3 },
+        Object.assign(new OrderSpec(), { type: DishType.BokChoy,     need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.Okra,        need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.Scallion,    need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.BambooShoot, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.GreenPepper, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.Lettuce,     need: 3 }),
     ],
-    poolPickStrategy: 'sequential',
+    poolPickStrategy: PoolPickStrategy.Sequential,
 
     // 总食材 30 = 开局 18 + 补料 12（每次 6，共 2 次）
     initialBowlSpawnCount: 18,
