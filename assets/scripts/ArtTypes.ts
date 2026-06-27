@@ -48,6 +48,7 @@ export interface DishProfile {
     hitSquishDuration: number;
     hitSwingAngle: number;
     hitSwingDuration: number;
+    displayZOffset: number;
 }
 
 function pickN(v: number, fallback: number): number {
@@ -79,5 +80,6 @@ export function buildDishProfile(type: DishType, variant: DishSpriteVariants | n
         hitSquishDuration: meta.hitSquishDuration,
         hitSwingAngle:     meta.hitSwingAngle,
         hitSwingDuration:  meta.hitSwingDuration,
+        displayZOffset:    meta.displayZOffset,
     };
 }

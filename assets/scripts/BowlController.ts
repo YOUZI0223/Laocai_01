@@ -36,6 +36,16 @@ export class BowlController extends Component {
     private _emittedLowOnce: boolean = false;
     private _edgeInset: number = 4;
 
+    // ── 关卡级 ambient 参数（由 applyLevelConfig 下发到每颗 dish）──
+    private _idleAmp: number = 0;
+    private _idleFreq: number = 0;
+    private _springStiff: number = 0.18;
+    private _springDamp: number = 0.82;
+
+    // ── 常驻气泡定时器 ──
+    private _ambientBubbleInterval: number = 1.5;
+    private _ambientBubbleTimer: number = 0;
+
     get dishLayer(): Node { return this._dishLayer!; }
     get bowlRadius(): number { return this.radius; }
 
@@ -101,6 +111,7 @@ export class BowlController extends Component {
         node.setPosition(localPos);
         const dish = node.getComponent(DishItem) ?? node.addComponent(DishItem);
         dish.init(profile);
+        dish.applyAmbient(this._idleAmp, this._idleFreq, this._springStiff, this._springDamp);
         node.on(DishEvent.Tapped, (d: DishItem) => {
             this.node.emit(BowlEvent.DishTapped, d);
         }, this);
@@ -150,11 +161,25 @@ export class BowlController extends Component {
         this.overlapTolerance  = level.overlapTolerance;
         this.refillThreshold   = level.refillThreshold;
         this._edgeInset        = level.bowlEdgeInset;
+        this._idleAmp          = level.idleBobAmplitude;
+        this._idleFreq         = level.idleBobFrequency;
+        this._springStiff      = level.springStiffness;
+        this._springDamp       = level.springDamping;
+        this._ambientBubbleInterval = level.ambientBubbleInterval;
     }
 
     // ─────────────── 自定义占位分离 ───────────────
 
-    lateUpdate(_dt: number) {
+    lateUpdate(dt: number) {
+        // 常驻气泡：与食材数无关，独立计时
+        if (this._ambientBubbleInterval > 0) {
+            this._ambientBubbleTimer += dt;
+            if (this._ambientBubbleTimer >= this._ambientBubbleInterval) {
+                this._ambientBubbleTimer = 0;
+                this.spawnBubbles(1);
+            }
+        }
+
         const dishes = this.getAllDishes();
         const N = dishes.length;
         if (N === 0) return;
@@ -265,11 +290,18 @@ export class BowlController extends Component {
 
     private _sortByY() {
         if (!this._dishLayer) return;
-        const list: { n: Node; y: number }[] = [];
+        // sortKey 越小越靠后渲染（底层），越大越靠前（顶层）
+        // 主因素 yFactor：Y 越低（屏幕下方）越靠前
+        // 次因素 displayZOffset：负值沉底，正值浮顶；20 为权重，使得 1 单位 zOffset ≈ 20px Y 差
+        const list: { n: Node; sortKey: number }[] = [];
         for (const c of this._dishLayer.children) {
-            if (c.getComponent(DishItem)) list.push({ n: c, y: c.position.y });
+            const dish = c.getComponent(DishItem);
+            if (!dish) continue;
+            const yFactor = -c.position.y;
+            const sortKey = yFactor + dish.displayZOffset * 20;
+            list.push({ n: c, sortKey });
         }
-        list.sort((a, b) => b.y - a.y);
+        list.sort((a, b) => a.sortKey - b.sortKey);
         for (let i = 0; i < list.length; i++) {
             list[i].n.setSiblingIndex(i);
         }

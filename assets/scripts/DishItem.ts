@@ -40,11 +40,32 @@ export class DishItem extends Component {
     private _state: DishPhysicsState = DishPhysicsState.Active;
     private _consumed: boolean = false;
 
-    // 反馈节流：基于 director 总时间（秒），同一颗食材 0.22s 内只播一次 bump
+    // 反馈节流：基于 director 总时间（秒）
     private _lastBumpAt: number = -1;
 
     // 视觉子节点，bumpFeedback 作用在这里，避免和位置/上浮 tween 冲突
     private _visualNode: Node | null = null;
+
+    // ── Idle 微动 ──
+    private _idleAmp: number = 0;
+    private _idleFreq: number = 0;
+    private _idlePhase: number = 0;     // 每颗食材独立随机相位
+    private _idleTime: number = 0;
+    private _baseY: number = 0;          // 稳定位置基准 Y（idle 在此基础上叠加偏移）
+    private _baseX: number = 0;
+
+    // ── 弹簧回稳（位置）──
+    private _springVx: number = 0;
+    private _springVy: number = 0;
+    private _springTargetX: number = 0;
+    private _springTargetY: number = 0;
+    private _springStiff: number = 0.18;
+    private _springDamp: number = 0.82;
+    private _useSpring: boolean = false;
+
+    // ── 显示 Z 偏移（用于 BowlController._sortByY 二次排序）──
+    private _displayZOffset: number = 0;
+    get displayZOffset(): number { return this._displayZOffset; }
 
     get dishType(): DishType { return this._type; }
     /** 显示半径。决定 UITransform 命中范围与图像尺寸。 */
@@ -72,6 +93,8 @@ export class DishItem extends Component {
         this._hitSquishDuration = profile.hitSquishDuration;
         this._hitSwingAngle     = profile.hitSwingAngle;
         this._hitSwingDuration  = profile.hitSwingDuration;
+        this._displayZOffset    = profile.displayZOffset;
+        this._idlePhase         = Math.random() * Math.PI * 2;
 
         const ui = this.getComponent(UITransform) ?? this.addComponent(UITransform);
         ui.setContentSize(this._visualR * 2, this._visualR * 2);
@@ -156,6 +179,8 @@ export class DishItem extends Component {
                 eulerAngles: new Vec3(0, 0, 0),
             }, { easing: 'sineInOut' })
             .call(() => {
+                // 上浮结束：写入终点并同步 _baseX/Y，避免下一帧 update 把食材弹回原点 (0,0)
+                this.setPosImmediate(targetPos.x, targetPos.y);
                 this._state = DishPhysicsState.Active;
             })
             .start();
@@ -166,9 +191,76 @@ export class DishItem extends Component {
             .start();
     }
 
-    /** 由 BowlController 在占位分离时直接写入分离后位置。 */
+    /**
+     * 应用关卡级氛围参数（idle 微动 + 弹簧回稳系数）
+     * BowlController.spawnDish 创建后立即下发。
+     */
+    applyAmbient(idleAmp: number, idleFreq: number, springStiff: number, springDamp: number) {
+        this._idleAmp = idleAmp;
+        // 每颗食材频率有 ±30% 随机，避免整锅同步晃动
+        this._idleFreq = idleFreq * (0.7 + Math.random() * 0.6);
+        this._springStiff = springStiff;
+        this._springDamp = springDamp;
+    }
+
+    /**
+     * BowlController 占位分离结算后调用：将目标位置交给弹簧缓动到位。
+     * 弹簧的"当前位置"就是 _baseX/Y（与 node.position 解耦于 idle 微动）。
+     */
     setPos(x: number, y: number) {
+        this._springTargetX = x;
+        this._springTargetY = y;
+        this._useSpring = true;
+    }
+
+    /**
+     * 强制立即写入位置（首次落位、上浮终点、shuffle 起点等）。
+     * 同步重置弹簧状态和 idle 基准点，避免被弹簧"拽回"旧位置。
+     */
+    setPosImmediate(x: number, y: number) {
         this.node.setPosition(x, y, 0);
+        this._springTargetX = x;
+        this._springTargetY = y;
+        this._springVx = 0;
+        this._springVy = 0;
+        this._baseX = x;
+        this._baseY = y;
+        this._useSpring = false;
+    }
+
+    /**
+     * 帧驱动：先用弹簧把 _baseX/Y 拉向 spring target，再叠加 idle 微动写到 node.position。
+     */
+    update(dt: number) {
+        if (this._consumed || this.isFloating) return;
+
+        if (this._useSpring) {
+            const dx = this._springTargetX - this._baseX;
+            const dy = this._springTargetY - this._baseY;
+            this._springVx = (this._springVx + dx * this._springStiff) * this._springDamp;
+            this._springVy = (this._springVy + dy * this._springStiff) * this._springDamp;
+            this._baseX += this._springVx;
+            this._baseY += this._springVy;
+            if (Math.abs(dx) < 0.3 && Math.abs(dy) < 0.3 &&
+                Math.abs(this._springVx) < 0.1 && Math.abs(this._springVy) < 0.1) {
+                this._useSpring = false;
+                this._baseX = this._springTargetX;
+                this._baseY = this._springTargetY;
+                this._springVx = 0;
+                this._springVy = 0;
+            }
+        }
+
+        if (this._idleAmp > 0) {
+            this._idleTime += dt;
+            const omega = this._idleFreq * Math.PI * 2;
+            const offsetY = Math.sin(this._idleTime * omega + this._idlePhase) * this._idleAmp;
+            const offsetX = Math.cos(this._idleTime * omega + this._idlePhase * 1.3) * this._idleAmp * 0.4;
+            this.node.setPosition(this._baseX + offsetX, this._baseY + offsetY, 0);
+        } else if (this._useSpring) {
+            // 没有 idle 时仍需把弹簧驱动的 base 写出去
+            this.node.setPosition(this._baseX, this._baseY, 0);
+        }
     }
 
     /**
@@ -179,7 +271,7 @@ export class DishItem extends Component {
         if (this._consumed || this.isFloating) return;
         if (!this._visualNode) return;
         const now = director.getTotalTime() / 1000;
-        if (this._lastBumpAt > 0 && now - this._lastBumpAt < 0.22) return;
+        if (this._lastBumpAt > 0 && now - this._lastBumpAt < 0.15) return;
         this._lastBumpAt = now;
 
         const target = this._visualNode;

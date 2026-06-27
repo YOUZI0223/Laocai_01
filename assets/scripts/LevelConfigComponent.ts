@@ -115,6 +115,42 @@ export class LevelConfigComponent extends Component {
     })
     refillRadiusFactor: number = 0.60;
 
+    // ───────── 锅内氛围与浮动感 ─────────
+    @property({
+        tooltip: 'Idle 微动幅度（像素）。0 = 关闭。建议 1~3',
+        range: [0, 6, 0.1],
+        slide: true,
+    })
+    idleBobAmplitude: number = 1.8;
+
+    @property({
+        tooltip: 'Idle 微动频率（Hz）。建议 0.3~1.0',
+        range: [0, 2, 0.05],
+        slide: true,
+    })
+    idleBobFrequency: number = 0.6;
+
+    @property({
+        tooltip: '常驻气泡间隔（秒）。0 = 关闭。建议 1~3',
+        range: [0, 5, 0.1],
+        slide: true,
+    })
+    ambientBubbleInterval: number = 1.5;
+
+    @property({
+        tooltip: '弹簧硬度 [0.05~0.30]。值越大回弹越快',
+        range: [0.05, 0.30, 0.01],
+        slide: true,
+    })
+    springStiffness: number = 0.18;
+
+    @property({
+        tooltip: '弹簧阻尼 [0.5~0.95]。值越大震荡越小',
+        range: [0.5, 0.95, 0.01],
+        slide: true,
+    })
+    springDamping: number = 0.82;
+
     // ───────── 道具 ─────────
     @property({
         tooltip: '关卡内可使用的 Shuffle 道具次数',
@@ -145,6 +181,11 @@ export class LevelConfigComponent extends Component {
             scatterMinDistFactor: this.scatterMinDistFactor,
             spawnRadiusFactor: this.spawnRadiusFactor,
             refillRadiusFactor: this.refillRadiusFactor,
+            idleBobAmplitude: this.idleBobAmplitude,
+            idleBobFrequency: this.idleBobFrequency,
+            ambientBubbleInterval: this.ambientBubbleInterval,
+            springStiffness: this.springStiffness,
+            springDamping: this.springDamping,
             shuffleUses: this.shuffleUses,
         };
     }

@@ -42,6 +42,8 @@ export interface DishMeta {
     hitSwingAngle: number;
     /** 摇摆衰减持续时间（秒） */
     hitSwingDuration: number;
+    /** 显示 Z 偏移（视觉层级微调）。大食材给负值（沉底），小食材给正值（浮顶）。默认 0 */
+    displayZOffset: number;
 }
 
 // 三级定档：大型 / 中型 / 小型
@@ -49,34 +51,44 @@ export interface DishMeta {
 export const DISH_META: ReadonlyArray<DishMeta> = [
     { type: DishType.Cabbage,     name: '卷心菜',   color: new Color(168, 222, 130, 255), radius: 56,
       weight: 3.0, elasticity: 0.18, damping: 0.65, rotationRange: 6,  upSpeed: 0.55, upDrift: 10,
-      hitSquishScale: 0.10, hitSquishDuration: 0.20, hitSwingAngle: 6,  hitSwingDuration: 0.40 },
+      hitSquishScale: 0.10, hitSquishDuration: 0.20, hitSwingAngle: 6,  hitSwingDuration: 0.40,
+      displayZOffset: -3 },
     { type: DishType.Broccoli,    name: '西兰花',   color: new Color( 56, 122,  58, 255), radius: 54,
       weight: 3.0, elasticity: 0.16, damping: 0.70, rotationRange: 5,  upSpeed: 0.55, upDrift: 9,
-      hitSquishScale: 0.09, hitSquishDuration: 0.18, hitSwingAngle: 5,  hitSwingDuration: 0.38 },
+      hitSquishScale: 0.09, hitSquishDuration: 0.18, hitSwingAngle: 5,  hitSwingDuration: 0.38,
+      displayZOffset: -3 },
     { type: DishType.BokChoy,     name: '小白菜',   color: new Color(180, 226, 140, 255), radius: 46,
       weight: 2.4, elasticity: 0.22, damping: 0.55, rotationRange: 10, upSpeed: 0.48, upDrift: 14,
-      hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 12, hitSwingDuration: 0.48 },
+      hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 12, hitSwingDuration: 0.48,
+      displayZOffset: -1 },
     { type: DishType.Cilantro,    name: '香菜',     color: new Color( 78, 138,  62, 255), radius: 42,
       weight: 1.8, elasticity: 0.28, damping: 0.40, rotationRange: 18, upSpeed: 0.40, upDrift: 20,
-      hitSquishScale: 0.06, hitSquishDuration: 0.14, hitSwingAngle: 28, hitSwingDuration: 0.65 },
+      hitSquishScale: 0.06, hitSquishDuration: 0.14, hitSwingAngle: 28, hitSwingDuration: 0.65,
+      displayZOffset: 2 },
     { type: DishType.Okra,        name: '秋葵',     color: new Color(108, 168,  78, 255), radius: 36,
       weight: 1.6, elasticity: 0.26, damping: 0.45, rotationRange: 15, upSpeed: 0.40, upDrift: 18,
-      hitSquishScale: 0.08, hitSquishDuration: 0.16, hitSwingAngle: 22, hitSwingDuration: 0.58 },
+      hitSquishScale: 0.08, hitSquishDuration: 0.16, hitSwingAngle: 22, hitSwingDuration: 0.58,
+      displayZOffset: 1 },
     { type: DishType.Avocado,     name: '牛油果',   color: new Color(196, 168,  76, 255), radius: 48,
       weight: 2.6, elasticity: 0.20, damping: 0.55, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
-      hitSquishScale: 0.11, hitSquishDuration: 0.20, hitSwingAngle: 8,  hitSwingDuration: 0.42 },
+      hitSquishScale: 0.11, hitSquishDuration: 0.20, hitSwingAngle: 8,  hitSwingDuration: 0.42,
+      displayZOffset: -2 },
     { type: DishType.Scallion,    name: '葱',       color: new Color(238, 240, 196, 255), radius: 38,
       weight: 1.5, elasticity: 0.30, damping: 0.40, rotationRange: 22, upSpeed: 0.38, upDrift: 22,
-      hitSquishScale: 0.07, hitSquishDuration: 0.14, hitSwingAngle: 32, hitSwingDuration: 0.70 },
+      hitSquishScale: 0.07, hitSquishDuration: 0.14, hitSwingAngle: 32, hitSwingDuration: 0.70,
+      displayZOffset: 2 },
     { type: DishType.BambooShoot, name: '竹笋',     color: new Color(236, 222, 168, 255), radius: 46,
       weight: 2.5, elasticity: 0.18, damping: 0.60, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
-      hitSquishScale: 0.10, hitSquishDuration: 0.19, hitSwingAngle: 9,  hitSwingDuration: 0.43 },
+      hitSquishScale: 0.10, hitSquishDuration: 0.19, hitSwingAngle: 9,  hitSwingDuration: 0.43,
+      displayZOffset: -2 },
     { type: DishType.GreenPepper, name: '青椒',     color: new Color(110, 174,  86, 255), radius: 44,
       weight: 2.3, elasticity: 0.22, damping: 0.50, rotationRange: 10, upSpeed: 0.45, upDrift: 15,
-      hitSquishScale: 0.12, hitSquishDuration: 0.21, hitSwingAngle: 11, hitSwingDuration: 0.47 },
+      hitSquishScale: 0.12, hitSquishDuration: 0.21, hitSwingAngle: 11, hitSwingDuration: 0.47,
+      displayZOffset: 0 },
     { type: DishType.Lettuce,     name: '生菜叶',   color: new Color(174, 220, 138, 255), radius: 44,
       weight: 2.2, elasticity: 0.24, damping: 0.50, rotationRange: 12, upSpeed: 0.45, upDrift: 16,
-      hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 14, hitSwingDuration: 0.50 },
+      hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 14, hitSwingDuration: 0.50,
+      displayZOffset: 0 },
 ];
 
 @ccclass('OrderSpec')
@@ -150,6 +162,18 @@ export interface LevelData {
     /** 补料有效半径系数（乘以 bowlRadius）。默认 0.60 */
     refillRadiusFactor: number;
 
+    // ── 锅内氛围与浮动感参数（驱动 BowlController + DishItem）─────
+    /** Idle 微动幅度（像素）。每个食材独立 sin 波摆动幅度。0 = 关闭。默认 1.8 */
+    idleBobAmplitude: number;
+    /** Idle 微动基础频率（Hz）。每个食材会在此基础上 ±30% 随机。默认 0.6 */
+    idleBobFrequency: number;
+    /** 常驻气泡间隔（秒）。锅心每隔此时间冒一个气泡。0 = 关闭。默认 1.5 */
+    ambientBubbleInterval: number;
+    /** 弹簧回稳硬度 [0.05~0.30]。值越大回弹越快。默认 0.18 */
+    springStiffness: number;
+    /** 弹簧回稳阻尼 [0.5~0.95]。值越大震荡越小。默认 0.82 */
+    springDamping: number;
+
     // ── 道具 ───────────────────────────────────────────────
     shuffleUses: number;
 }
@@ -196,6 +220,13 @@ export const LEVEL_1: LevelData = {
     scatterMinDistFactor: 0.85,
     spawnRadiusFactor: 0.78,
     refillRadiusFactor: 0.60,
+
+    // 锅内氛围与浮动感
+    idleBobAmplitude: 1.8,
+    idleBobFrequency: 0.6,
+    ambientBubbleInterval: 1.5,
+    springStiffness: 0.18,
+    springDamping: 0.82,
 
     shuffleUses: 3,
 };
