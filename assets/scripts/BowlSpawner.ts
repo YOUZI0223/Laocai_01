@@ -36,6 +36,12 @@ export class BowlSpawner extends Component {
         const initialItems = allTypesExpanded.slice(0, level.initialBowlSpawnCount);
         this._pendingSpawnQueue = allTypesExpanded.slice(level.initialBowlSpawnCount);
 
+        console.log('[BowlSpawner] spawnInitial:',
+            'allTypes=', allOrderTypes.length,
+            'expanded=', allTypesExpanded.length,
+            'spawning=', initialItems.length,
+            'queue=', this._pendingSpawnQueue.length);
+
         const positions = this._scatterPositions(
             initialItems.length,
             this.bowl.bowlRadius * level.spawnRadiusFactor,

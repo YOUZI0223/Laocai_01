@@ -36,6 +36,14 @@ export class LevelConfigComponent extends Component {
     })
     poolPickStrategy: PoolPickStrategy = PoolPickStrategy.Sequential;
 
+    // ───────── 锅体 ─────────
+    @property({
+        tooltip: '锅物理半径（像素）。决定可视尺寸、UI 容器、边界推回与散点基准。建议 240~420',
+        range: [200, 450, 5],
+        slide: true,
+    })
+    bowlRadius: number = 320;
+
     // ───────── 食材生成 ─────────
     @property({
         tooltip: '开局一次性投入锅内的食材数量。总食材=(initialOrders+orderPool).length×3',
@@ -49,7 +57,7 @@ export class LevelConfigComponent extends Component {
         range: [1, 20, 1],
         slide: true,
     })
-    refillBatchSize: number = 6;
+    refillBatchSize: number = 4;
 
     @property({
         tooltip: '锅内剩余食材 ≤ 此值时触发一次 refill',
@@ -64,20 +72,34 @@ export class LevelConfigComponent extends Component {
         range: [1, 8, 1],
         slide: true,
     })
-    resolveIterations: number = 3;
+    resolveIterations: number = 2;
 
     @property({
         tooltip: '单次迭代单颗食材最大位移上限（像素）',
         range: [1, 50, 1],
         slide: true,
     })
-    maxPushPerIter: number = 14;
+    maxPushPerIter: number = 4;
 
     @property({ tooltip: '允许的轻微重叠量（像素）' })
-    overlapTolerance: number = 2;
+    overlapTolerance: number = 18;
 
     @property({ tooltip: '锅体有效区域内缩量（像素）' })
     bowlEdgeInset: number = 4;
+
+    @property({
+        tooltip: '中心引力 [0~0.02]。每帧把食材位置向锅心拽 g 倍。拉力随距离线性渐变（中心 0、边缘 g）',
+        range: [0, 0.02, 0.001],
+        slide: true,
+    })
+    centerGravity: number = 0.006;
+
+    @property({
+        tooltip: '视觉堆叠高度（像素）。每食材 Y 偏移 = -displayZOffset × 此值。大食材沉底（屏幕高 Y），小食材压顶（屏幕低 Y），形成多层堆叠视感。0=禁用纯靠排序',
+        range: [0, 40, 1],
+        slide: true,
+    })
+    stackHeightFactor: number = 18;
 
     // ───────── 生成节奏 ─────────
     @property({
@@ -96,10 +118,10 @@ export class LevelConfigComponent extends Component {
 
     @property({
         tooltip: '初始投放散点时食材间最小距离系数',
-        range: [0.5, 1.2, 0.05],
+        range: [0.3, 1.2, 0.05],
         slide: true,
     })
-    scatterMinDistFactor: number = 0.85;
+    scatterMinDistFactor: number = 0.55;
 
     @property({
         tooltip: '初始投放有效半径系数（乘以 bowlRadius）',
@@ -113,22 +135,22 @@ export class LevelConfigComponent extends Component {
         range: [0.3, 1.0, 0.02],
         slide: true,
     })
-    refillRadiusFactor: number = 0.60;
+    refillRadiusFactor: number = 0.55;
 
     // ───────── 锅内氛围与浮动感 ─────────
     @property({
-        tooltip: 'Idle 微动幅度（像素）。0 = 关闭。建议 1~3',
+        tooltip: 'Idle 微动幅度（像素）。0 = 关闭。建议 0.5~2',
         range: [0, 6, 0.1],
         slide: true,
     })
-    idleBobAmplitude: number = 1.8;
+    idleBobAmplitude: number = 1.2;
 
     @property({
-        tooltip: 'Idle 微动频率（Hz）。建议 0.3~1.0',
+        tooltip: 'Idle 微动频率（Hz）。建议 0.3~0.7',
         range: [0, 2, 0.05],
         slide: true,
     })
-    idleBobFrequency: number = 0.6;
+    idleBobFrequency: number = 0.5;
 
     @property({
         tooltip: '常驻气泡间隔（秒）。0 = 关闭。建议 1~3',
@@ -169,6 +191,7 @@ export class LevelConfigComponent extends Component {
             initialOrders: this.initialOrders,
             orderPool: this.orderPool,
             poolPickStrategy: this.poolPickStrategy,
+            bowlRadius: this.bowlRadius,
             initialBowlSpawnCount: this.initialBowlSpawnCount,
             refillBatchSize: this.refillBatchSize,
             refillThreshold: this.refillThreshold,
@@ -176,6 +199,8 @@ export class LevelConfigComponent extends Component {
             maxPushPerIter: this.maxPushPerIter,
             overlapTolerance: this.overlapTolerance,
             bowlEdgeInset: this.bowlEdgeInset,
+            centerGravity: this.centerGravity,
+            stackHeightFactor: this.stackHeightFactor,
             spawnStagger: this.spawnStagger,
             refillStagger: this.refillStagger,
             scatterMinDistFactor: this.scatterMinDistFactor,

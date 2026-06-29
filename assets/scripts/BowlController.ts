@@ -35,6 +35,8 @@ export class BowlController extends Component {
     private _bubbleLayer: Node | null = null;
     private _emittedLowOnce: boolean = false;
     private _edgeInset: number = 4;
+    private _centerGravity: number = 0;
+    private _stackHeightFactor: number = 0;
 
     // ── 关卡级 ambient 参数（由 applyLevelConfig 下发到每颗 dish）──
     private _idleAmp: number = 0;
@@ -111,7 +113,7 @@ export class BowlController extends Component {
         node.setPosition(localPos);
         const dish = node.getComponent(DishItem) ?? node.addComponent(DishItem);
         dish.init(profile);
-        dish.applyAmbient(this._idleAmp, this._idleFreq, this._springStiff, this._springDamp);
+        dish.applyAmbient(this._idleAmp, this._idleFreq, this._springStiff, this._springDamp, this._stackHeightFactor);
         node.on(DishEvent.Tapped, (d: DishItem) => {
             this.node.emit(BowlEvent.DishTapped, d);
         }, this);
@@ -161,6 +163,8 @@ export class BowlController extends Component {
         this.overlapTolerance  = level.overlapTolerance;
         this.refillThreshold   = level.refillThreshold;
         this._edgeInset        = level.bowlEdgeInset;
+        this._centerGravity    = level.centerGravity;
+        this._stackHeightFactor = level.stackHeightFactor;
         this._idleAmp          = level.idleBobAmplitude;
         this._idleFreq         = level.idleBobFrequency;
         this._springStiff      = level.springStiffness;
@@ -251,8 +255,9 @@ export class BowlController extends Component {
                     xs[j] += nx * pushJ;
                     ys[j] += ny * pushJ;
 
-                    if (pushI > 0.3) bumped[i] = true;
-                    if (pushJ > 0.3) bumped[j] = true;
+                    // 触发视觉 squish 的阈值：1.5px 才算"被显著推到"，避免微小贴边触发整锅缩压抖动
+                    if (pushI > 1.5) bumped[i] = true;
+                    if (pushJ > 1.5) bumped[j] = true;
                 }
             }
 
@@ -272,10 +277,31 @@ export class BowlController extends Component {
             }
         }
 
-        // 应用位置
+        // 中心引力：平滑梯度版本。
+        // 拉力随距离线性渐变：中心 = 0，碗边缘 = 满 g。
+        // 避免之前 dead zone 硬边界导致内圈食材在边界附近来回越线产生持续抖动。
+        if (this._centerGravity > 0) {
+            const g = this._centerGravity;
+            const invBowlR = 1 / this.radius;
+            for (let i = 0; i < N; i++) {
+                const a = dishes[i];
+                if (a.isConsumed || a.isFloating) continue;
+                const r2 = xs[i] * xs[i] + ys[i] * ys[i];
+                if (r2 < 25) continue;                  // 已经在中心 5px 内不动
+                const r = Math.sqrt(r2);
+                const pullFactor = g * (r * invBowlR);  // 0 at center → g at edge
+                xs[i] *= (1 - pullFactor);
+                ys[i] *= (1 - pullFactor);
+            }
+        }
+
+        // 应用位置：仅当本帧位置较开始有显著变化才 setPos，避免每帧无谓激活 spring 导致整锅抽搐
         for (let i = 0; i < N; i++) {
             const a = dishes[i];
             if (a.isConsumed || a.isFloating) continue;
+            const dx = xs[i] - a.posX;
+            const dy = ys[i] - a.posY;
+            if (dx * dx + dy * dy < 0.04) continue;   // 位移 < 0.2px 不写
             a.setPos(xs[i], ys[i]);
         }
 
@@ -292,13 +318,13 @@ export class BowlController extends Component {
         if (!this._dishLayer) return;
         // sortKey 越小越靠后渲染（底层），越大越靠前（顶层）
         // 主因素 yFactor：Y 越低（屏幕下方）越靠前
-        // 次因素 displayZOffset：负值沉底，正值浮顶；20 为权重，使得 1 单位 zOffset ≈ 20px Y 差
+        // 次因素 displayZOffset：负值沉底，正值浮顶；60 为权重，使得 1 单位 zOffset ≈ 60px Y 差
         const list: { n: Node; sortKey: number }[] = [];
         for (const c of this._dishLayer.children) {
             const dish = c.getComponent(DishItem);
             if (!dish) continue;
             const yFactor = -c.position.y;
-            const sortKey = yFactor + dish.displayZOffset * 20;
+            const sortKey = yFactor + dish.displayZOffset * 60;
             list.push({ n: c, sortKey });
         }
         list.sort((a, b) => a.sortKey - b.sortKey);

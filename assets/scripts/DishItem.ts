@@ -67,6 +67,11 @@ export class DishItem extends Component {
     private _displayZOffset: number = 0;
     get displayZOffset(): number { return this._displayZOffset; }
 
+    // ── 视觉堆叠：把 _displayZOffset 乘以这个数得到 Y 方向像素偏移，让大食材沉底、小食材压顶
+    private _stackHeightFactor: number = 0;
+    /** 当前食材最终 Y 偏移（已含正负号）。floatUpFromCenter 拿来调整目标 Y */
+    private get _stackY(): number { return -this._displayZOffset * this._stackHeightFactor; }
+
     get dishType(): DishType { return this._type; }
     /** 显示半径。决定 UITransform 命中范围与图像尺寸。 */
     get radius(): number { return this._visualR; }
@@ -76,8 +81,16 @@ export class DishItem extends Component {
     get isConsumed(): boolean { return this._consumed; }
     get isFloating(): boolean { return this._state === DishPhysicsState.Floating; }
     get isActive(): boolean { return this._state === DishPhysicsState.Active; }
-    get posX(): number { return this.node.position.x; }
-    get posY(): number { return this.node.position.y; }
+    /**
+     * Active 状态返回 _baseX/_baseY（稳定位置，不含 idle 微动偏移），让 resolver 不被呼吸式的视觉抖动反复触发推挤。
+     * Floating 状态由 tween 控制 node.position，没有 base 可用，所以返回真实 node.position。
+     */
+    get posX(): number {
+        return this._state === DishPhysicsState.Floating ? this.node.position.x : this._baseX;
+    }
+    get posY(): number {
+        return this._state === DishPhysicsState.Floating ? this.node.position.y : this._baseY;
+    }
 
     init(profile: DishProfile) {
         this._type = profile.type;
@@ -95,6 +108,9 @@ export class DishItem extends Component {
         this._hitSwingDuration  = profile.hitSwingDuration;
         this._displayZOffset    = profile.displayZOffset;
         this._idlePhase         = Math.random() * Math.PI * 2;
+        // 兜底：用 spawnDish 设置的初始位置作为 _baseX/Y，防止任何不走 floatUpFromCenter 的代码路径让 posX/Y 错误返回 (0,0)
+        this._baseX             = this.node.position.x;
+        this._baseY             = this.node.position.y;
 
         const ui = this.getComponent(UITransform) ?? this.addComponent(UITransform);
         ui.setContentSize(this._visualR * 2, this._visualR * 2);
@@ -158,10 +174,14 @@ export class DishItem extends Component {
         const startRot = (Math.random() - 0.5) * this._rotationRange * 2;
         this.node.eulerAngles = new Vec3(0, 0, startRot);
 
+        // 终点叠加视觉堆叠偏移：负 displayZOffset 把大食材推向高 Y（屏幕远端），正 zOff 把小食材推向低 Y（屏幕近端）
+        const finalX = targetPos.x;
+        const finalY = targetPos.y + this._stackY;
+
         // 中段：朝目标方向上浮 60% + 横向漂移
         const driftX = (Math.random() - 0.5) * 2 * this._upDrift;
-        const midX = targetPos.x * 0.55 + driftX;
-        const midY = targetPos.y * 0.55 + this._visualR * 0.4;
+        const midX = finalX * 0.55 + driftX;
+        const midY = finalY * 0.55 + this._visualR * 0.4;
         const midRot = (Math.random() - 0.5) * this._rotationRange;
 
         const dur = this._upSpeed;
@@ -174,13 +194,13 @@ export class DishItem extends Component {
                 eulerAngles: new Vec3(0, 0, midRot),
             }, { easing: 'sineOut' })
             .to(dur * 0.25, {
-                position: new Vec3(targetPos.x, targetPos.y, 0),
+                position: new Vec3(finalX, finalY, 0),
                 scale: new Vec3(1.0, 1.0, 1),
                 eulerAngles: new Vec3(0, 0, 0),
             }, { easing: 'sineInOut' })
             .call(() => {
                 // 上浮结束：写入终点并同步 _baseX/Y，避免下一帧 update 把食材弹回原点 (0,0)
-                this.setPosImmediate(targetPos.x, targetPos.y);
+                this.setPosImmediate(finalX, finalY);
                 this._state = DishPhysicsState.Active;
             })
             .start();
@@ -195,12 +215,13 @@ export class DishItem extends Component {
      * 应用关卡级氛围参数（idle 微动 + 弹簧回稳系数）
      * BowlController.spawnDish 创建后立即下发。
      */
-    applyAmbient(idleAmp: number, idleFreq: number, springStiff: number, springDamp: number) {
+    applyAmbient(idleAmp: number, idleFreq: number, springStiff: number, springDamp: number, stackHeightFactor: number) {
         this._idleAmp = idleAmp;
         // 每颗食材频率有 ±30% 随机，避免整锅同步晃动
         this._idleFreq = idleFreq * (0.7 + Math.random() * 0.6);
         this._springStiff = springStiff;
         this._springDamp = springDamp;
+        this._stackHeightFactor = stackHeightFactor;
     }
 
     /**

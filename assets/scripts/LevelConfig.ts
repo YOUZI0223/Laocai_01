@@ -49,43 +49,43 @@ export interface DishMeta {
 // 三级定档：大型 / 中型 / 小型
 // 大食材重、稳、晃动小、上浮慢；小食材轻、容易被挤开、上浮快晃动明显。
 export const DISH_META: ReadonlyArray<DishMeta> = [
-    { type: DishType.Cabbage,     name: '卷心菜',   color: new Color(168, 222, 130, 255), radius: 56,
+    { type: DishType.Cabbage,     name: '卷心菜',   color: new Color(168, 222, 130, 255), radius: 72,
       weight: 3.0, elasticity: 0.18, damping: 0.65, rotationRange: 6,  upSpeed: 0.55, upDrift: 10,
       hitSquishScale: 0.10, hitSquishDuration: 0.20, hitSwingAngle: 6,  hitSwingDuration: 0.40,
-      displayZOffset: -3 },
-    { type: DishType.Broccoli,    name: '西兰花',   color: new Color( 56, 122,  58, 255), radius: 54,
+      displayZOffset: -5 },
+    { type: DishType.Broccoli,    name: '西兰花',   color: new Color( 56, 122,  58, 255), radius: 70,
       weight: 3.0, elasticity: 0.16, damping: 0.70, rotationRange: 5,  upSpeed: 0.55, upDrift: 9,
       hitSquishScale: 0.09, hitSquishDuration: 0.18, hitSwingAngle: 5,  hitSwingDuration: 0.38,
-      displayZOffset: -3 },
-    { type: DishType.BokChoy,     name: '小白菜',   color: new Color(180, 226, 140, 255), radius: 46,
+      displayZOffset: -5 },
+    { type: DishType.BokChoy,     name: '小白菜',   color: new Color(180, 226, 140, 255), radius: 60,
       weight: 2.4, elasticity: 0.22, damping: 0.55, rotationRange: 10, upSpeed: 0.48, upDrift: 14,
       hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 12, hitSwingDuration: 0.48,
       displayZOffset: -1 },
-    { type: DishType.Cilantro,    name: '香菜',     color: new Color( 78, 138,  62, 255), radius: 42,
+    { type: DishType.Cilantro,    name: '香菜',     color: new Color( 78, 138,  62, 255), radius: 55,
       weight: 1.8, elasticity: 0.28, damping: 0.40, rotationRange: 18, upSpeed: 0.40, upDrift: 20,
       hitSquishScale: 0.06, hitSquishDuration: 0.14, hitSwingAngle: 28, hitSwingDuration: 0.65,
-      displayZOffset: 2 },
-    { type: DishType.Okra,        name: '秋葵',     color: new Color(108, 168,  78, 255), radius: 36,
+      displayZOffset: 4 },
+    { type: DishType.Okra,        name: '秋葵',     color: new Color(108, 168,  78, 255), radius: 47,
       weight: 1.6, elasticity: 0.26, damping: 0.45, rotationRange: 15, upSpeed: 0.40, upDrift: 18,
       hitSquishScale: 0.08, hitSquishDuration: 0.16, hitSwingAngle: 22, hitSwingDuration: 0.58,
-      displayZOffset: 1 },
-    { type: DishType.Avocado,     name: '牛油果',   color: new Color(196, 168,  76, 255), radius: 48,
+      displayZOffset: 2 },
+    { type: DishType.Avocado,     name: '牛油果',   color: new Color(196, 168,  76, 255), radius: 62,
       weight: 2.6, elasticity: 0.20, damping: 0.55, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
       hitSquishScale: 0.11, hitSquishDuration: 0.20, hitSwingAngle: 8,  hitSwingDuration: 0.42,
-      displayZOffset: -2 },
-    { type: DishType.Scallion,    name: '葱',       color: new Color(238, 240, 196, 255), radius: 38,
+      displayZOffset: -3 },
+    { type: DishType.Scallion,    name: '葱',       color: new Color(238, 240, 196, 255), radius: 50,
       weight: 1.5, elasticity: 0.30, damping: 0.40, rotationRange: 22, upSpeed: 0.38, upDrift: 22,
       hitSquishScale: 0.07, hitSquishDuration: 0.14, hitSwingAngle: 32, hitSwingDuration: 0.70,
-      displayZOffset: 2 },
-    { type: DishType.BambooShoot, name: '竹笋',     color: new Color(236, 222, 168, 255), radius: 46,
+      displayZOffset: 4 },
+    { type: DishType.BambooShoot, name: '竹笋',     color: new Color(236, 222, 168, 255), radius: 60,
       weight: 2.5, elasticity: 0.18, damping: 0.60, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
       hitSquishScale: 0.10, hitSquishDuration: 0.19, hitSwingAngle: 9,  hitSwingDuration: 0.43,
-      displayZOffset: -2 },
-    { type: DishType.GreenPepper, name: '青椒',     color: new Color(110, 174,  86, 255), radius: 44,
+      displayZOffset: -3 },
+    { type: DishType.GreenPepper, name: '青椒',     color: new Color(110, 174,  86, 255), radius: 57,
       weight: 2.3, elasticity: 0.22, damping: 0.50, rotationRange: 10, upSpeed: 0.45, upDrift: 15,
       hitSquishScale: 0.12, hitSquishDuration: 0.21, hitSwingAngle: 11, hitSwingDuration: 0.47,
       displayZOffset: 0 },
-    { type: DishType.Lettuce,     name: '生菜叶',   color: new Color(174, 220, 138, 255), radius: 44,
+    { type: DishType.Lettuce,     name: '生菜叶',   color: new Color(174, 220, 138, 255), radius: 57,
       weight: 2.2, elasticity: 0.24, damping: 0.50, rotationRange: 12, upSpeed: 0.45, upDrift: 16,
       hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 14, hitSwingDuration: 0.50,
       displayZOffset: 0 },
@@ -126,6 +126,10 @@ export interface LevelData {
      */
     poolPickStrategy: PoolPickStrategy;
 
+    // ── 锅体 ──────────────────────────────────────────────
+    /** 锅的物理半径（像素）。同时决定可视绘图尺寸、UI 容器、边界推回与散点基准。默认 320 */
+    bowlRadius: number;
+
     // ── 食材生成 ───────────────────────────────────────────
     /**
      * 开局一次性投入锅内的食材数量
@@ -149,6 +153,14 @@ export interface LevelData {
     overlapTolerance: number;
     /** 锅体有效区域内缩量（像素）。默认 4 */
     bowlEdgeInset: number;
+    /** 中心引力 [0~0.02]。每帧把每颗食材位置向锅心拽 g 倍，模拟"碗底凹陷"的物理堆叠效果。0=关闭。默认 0.006 */
+    centerGravity: number;
+    /**
+     * 视觉堆叠高度系数（像素）。每颗食材的最终 Y = 散点 Y - displayZOffset × 此值。
+     * 大食材（zOff 负）→ 视觉上移到屏幕远端（高 Y），小食材（zOff 正）→ 视觉下移到屏幕近端（低 Y），
+     * 配合 Y 排序自动形成"大食材沉底、小食材压顶"的多层堆叠视感。0=禁用，纯靠排序。默认 18
+     */
+    stackHeightFactor: number;
 
     // ── 生成节奏参数（驱动 BowlSpawner）─────────────────────
     /** 初始投放时相邻食材上浮动画错开间隔（秒）。默认 0.025 */
@@ -203,27 +215,32 @@ export const LEVEL_1: LevelData = {
     ],
     poolPickStrategy: PoolPickStrategy.Sequential,
 
-    // 总食材 30 = 开局 18 + 补料 12（每次 6，共 2 次）
+    // 锅半径
+    bowlRadius: 320,
+
+    // 总食材 30 = 开局 18 + 补料 12（每次 4，共 3 次）
     initialBowlSpawnCount: 18,
-    refillBatchSize: 6,
+    refillBatchSize: 4,
     refillThreshold: 8,
 
-    // 碰撞结算
-    resolveIterations: 3,
-    maxPushPerIter: 14,
-    overlapTolerance: 2,
+    // 碰撞结算：moderate 推力 + 中等重叠 + 中心引力 → 多颗+堆叠感
+    resolveIterations: 2,
+    maxPushPerIter: 4,
+    overlapTolerance: 18,
     bowlEdgeInset: 4,
+    centerGravity: 0.006,
+    stackHeightFactor: 18,
 
     // 生成节奏
     spawnStagger: 0.025,
     refillStagger: 0.08,
-    scatterMinDistFactor: 0.85,
+    scatterMinDistFactor: 0.55,
     spawnRadiusFactor: 0.78,
-    refillRadiusFactor: 0.60,
+    refillRadiusFactor: 0.55,
 
     // 锅内氛围与浮动感
-    idleBobAmplitude: 1.8,
-    idleBobFrequency: 0.6,
+    idleBobAmplitude: 1.2,
+    idleBobFrequency: 0.5,
     ambientBubbleInterval: 1.5,
     springStiffness: 0.18,
     springDamping: 0.82,

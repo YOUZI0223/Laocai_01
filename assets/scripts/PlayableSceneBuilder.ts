@@ -382,11 +382,11 @@ export class PlayableSceneBuilder extends Component {
     }
 
     private _buildBowlAndSpawner() {
-        const radius = 320;
+        const levelData = this._level;
+        const radius = levelData.bowlRadius;
         const host = this._addUI(this.node, 'bowl', radius * 2 + 30, radius * 2 + 30, -DESIGN_H * 0.5 + radius + 220);
         const bowl = host.addComponent(BowlController);
         bowl.radius = radius;
-        const levelData = this._level;
         bowl.refillThreshold = levelData.refillThreshold;
         bowl.applyLevelConfig(levelData);
         this._bowl = bowl;
