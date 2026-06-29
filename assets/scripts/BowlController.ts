@@ -33,10 +33,14 @@ export class BowlController extends Component {
 
     private _dishLayer: Node | null = null;
     private _bubbleLayer: Node | null = null;
+    /** 汤水中间带节点，位于 dishLayer 内部，用于放置汤面序列帧动画 */
+    private _soupLayer: Node | null = null;
+    private _soupLayerCutoff: number = 2;
     private _emittedLowOnce: boolean = false;
     private _edgeInset: number = 4;
     private _centerGravity: number = 0;
     private _stackHeightFactor: number = 0;
+    private _crossLayerSkipThreshold: number = 999; // 999 = 不跳过（默认行为）
 
     // ── 关卡级 ambient 参数（由 applyLevelConfig 下发到每颗 dish）──
     private _idleAmp: number = 0;
@@ -50,6 +54,8 @@ export class BowlController extends Component {
 
     get dishLayer(): Node { return this._dishLayer!; }
     get bowlRadius(): number { return this.radius; }
+    /** 汤水中间带节点（位于第二层与第三层食材之间）。调用方可往此节点挂 Sprite/Animation */
+    get soupLayer(): Node { return this._soupLayer!; }
 
     onLoad() {
         // 自定义占位分离方案，关闭 Box2D
@@ -100,6 +106,22 @@ export class BowlController extends Component {
         this.node.addChild(layer);
         layer.addComponent(UITransform);
         this._dishLayer = layer;
+
+        // 汤水中间带：作为 dishLayer 子节点，参与 _sortByY 的带状排序
+        const soup = new Node('soup-surface');
+        soup.layer = layer.layer;
+        layer.addChild(soup);
+        soup.addComponent(UITransform);
+        this._soupLayer = soup;
+    }
+
+    /** 把汤面 Prefab 实例化进汤水中间带（含 Sprite + Animation 序列帧组件） */
+    applySoupSurface(prefab: Prefab | null) {
+        if (!prefab || !this._soupLayer) return;
+        this._soupLayer.removeAllChildren();
+        const inst = instantiate(prefab);
+        inst.layer = this._soupLayer.layer;
+        this._soupLayer.addChild(inst);
     }
 
     /**
@@ -165,6 +187,8 @@ export class BowlController extends Component {
         this._edgeInset        = level.bowlEdgeInset;
         this._centerGravity    = level.centerGravity;
         this._stackHeightFactor = level.stackHeightFactor;
+        this._crossLayerSkipThreshold = level.crossLayerSkipThreshold;
+        this._soupLayerCutoff   = level.soupLayerCutoff;
         this._idleAmp          = level.idleBobAmplitude;
         this._idleFreq         = level.idleBobFrequency;
         this._springStiff      = level.springStiffness;
@@ -192,6 +216,7 @@ export class BowlController extends Component {
         const maxPush = this.maxPushPerIter;
         const tol = this.overlapTolerance;
         const edgeR = this.radius - this._edgeInset;
+        const zSkip = this._crossLayerSkipThreshold;
 
         // 拉出位置到本地数组，减少多次访问开销
         const xs = new Array<number>(N);
@@ -217,6 +242,11 @@ export class BowlController extends Component {
                     const bFloat = b.isFloating;
                     // 两个都在上浮：不参与互相分离（都在 tween 控制下，下一帧自然分开）
                     if (aFloat && bFloat) continue;
+
+                    // 跨层跳过：当两颗食材 displayZOffset 差值 ≥ 阈值，
+                    // 不再相互推开，允许小食材"压"在大食材正上方完全遮挡
+                    const dz = a.displayZOffset - b.displayZOffset;
+                    if (dz >= zSkip || -dz >= zSkip) continue;
 
                     const dx = xs[j] - xi;
                     const dy = ys[j] - yi;
@@ -316,15 +346,25 @@ export class BowlController extends Component {
 
     private _sortByY() {
         if (!this._dishLayer) return;
-        // sortKey 越小越靠后渲染（底层），越大越靠前（顶层）
-        // 主因素 yFactor：Y 越低（屏幕下方）越靠前
-        // 次因素 displayZOffset：负值沉底，正值浮顶；60 为权重，使得 1 单位 zOffset ≈ 60px Y 差
+        // 带状排序：把所有子节点分成「汤下／汤面／汤上」三个不重叠的 sortKey 区段。
+        //   - 汤下带：displayZOffset < cutoff 的食材，sortKey = yFactor + zOff*60，范围约 [-400, +400]
+        //   - 汤面带：soupLayer 节点，sortKey = SOUP_BAND（恒定 100000）
+        //   - 汤上带：displayZOffset >= cutoff 的食材，sortKey = 2*SOUP_BAND + yFactor + zOff*60
+        // 通过 100000 的大间隔确保任何 yFactor + zOff*60 都不会越界进错带。
+        const SOUP_BAND = 100000;
+        const cutoff = this._soupLayerCutoff;
+        const soupNode = this._soupLayer;
         const list: { n: Node; sortKey: number }[] = [];
         for (const c of this._dishLayer.children) {
+            if (c === soupNode) {
+                list.push({ n: c, sortKey: SOUP_BAND });
+                continue;
+            }
             const dish = c.getComponent(DishItem);
             if (!dish) continue;
             const yFactor = -c.position.y;
-            const sortKey = yFactor + dish.displayZOffset * 60;
+            const inner = yFactor + dish.displayZOffset * 60;
+            const sortKey = dish.displayZOffset >= cutoff ? (SOUP_BAND * 2 + inner) : inner;
             list.push({ n: c, sortKey });
         }
         list.sort((a, b) => a.sortKey - b.sortKey);

@@ -101,6 +101,20 @@ export class LevelConfigComponent extends Component {
     })
     stackHeightFactor: number = 18;
 
+    @property({
+        tooltip: '跨层碰撞跳过阈值。两颗食材 displayZOffset 差 ≥ 此值时不再相互推开，允许小食材完全压在大食材上面。1=最激进，3~5=推荐，999=禁用',
+        range: [1, 10, 1],
+        slide: true,
+    })
+    crossLayerSkipThreshold: number = 3;
+
+    @property({
+        tooltip: '汤面分层阈值。displayZOffset ≥ 此值的食材渲染在汤面之上，小于此值的食材渲染在汤面之下。默认 2 → 香菜/葱/秋葵浮在汤面之上',
+        range: [-5, 5, 1],
+        slide: true,
+    })
+    soupLayerCutoff: number = 2;
+
     // ───────── 生成节奏 ─────────
     @property({
         tooltip: '初始投放时相邻食材上浮动画错开间隔（秒）',
@@ -201,6 +215,8 @@ export class LevelConfigComponent extends Component {
             bowlEdgeInset: this.bowlEdgeInset,
             centerGravity: this.centerGravity,
             stackHeightFactor: this.stackHeightFactor,
+            crossLayerSkipThreshold: this.crossLayerSkipThreshold,
+            soupLayerCutoff: this.soupLayerCutoff,
             spawnStagger: this.spawnStagger,
             refillStagger: this.refillStagger,
             scatterMinDistFactor: this.scatterMinDistFactor,

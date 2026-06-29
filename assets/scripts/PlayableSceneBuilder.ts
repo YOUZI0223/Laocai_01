@@ -43,6 +43,9 @@ export class PlayableSceneBuilder extends Component {
     @property({ type: SpriteFrame, tooltip: '碗内汤水静图（waterPrefab 为空时使用）' })
     waterSprite: SpriteFrame | null = null;
 
+    @property({ type: Prefab, tooltip: '汤面中间带 Prefab（位于第二层与第三层食材之间，含 Sprite + Animation 序列帧组件）' })
+    soupSurfacePrefab: Prefab | null = null;
+
     // 10 种食材按 DishType 顺序：0卷心菜 1西兰花 2小白菜 3香菜 4秋葵 5牛油果 6葱 7竹笋 8青椒 9生菜叶
     // 每个元素是 DishSpriteVariants 结构体，内部 sprites 数组放该食材的不同角度图
     @property([DishSpriteVariants])
@@ -391,6 +394,7 @@ export class PlayableSceneBuilder extends Component {
         bowl.applyLevelConfig(levelData);
         this._bowl = bowl;
         bowl.applyBowlSkin(this.bowlSprite, this.waterSprite, this.waterPrefab);
+        bowl.applySoupSurface(this.soupSurfacePrefab);
 
         const spawnerHost = new Node('spawner');
         spawnerHost.layer = this.node.layer;

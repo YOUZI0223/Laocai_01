@@ -161,6 +161,18 @@ export interface LevelData {
      * 配合 Y 排序自动形成"大食材沉底、小食材压顶"的多层堆叠视感。0=禁用，纯靠排序。默认 18
      */
     stackHeightFactor: number;
+    /**
+     * 跨层碰撞跳过阈值。当两颗食材的 displayZOffset 差值 ≥ 此值时，resolver 不再把它们推开，
+     * 允许小食材"压"在大食材正上方实现完全堆叠遮挡效果。
+     * 0=禁用（任何不同层都跳过，会乱），1=只要不同层就跳过（最激进），
+     * 3~5=同/相邻层正常分离，跨度大的层完全允许重叠（推荐）。默认 3
+     */
+    crossLayerSkipThreshold: number;
+    /**
+     * 汤面中间带的分层阈值。displayZOffset ≥ 此值的食材渲染在汤面之上（漂浮顶层），
+     * 小于此值的食材渲染在汤面之下（淹没底层）。默认 2 → 香菜/葱/秋葵浮在汤面，其它沉底
+     */
+    soupLayerCutoff: number;
 
     // ── 生成节奏参数（驱动 BowlSpawner）─────────────────────
     /** 初始投放时相邻食材上浮动画错开间隔（秒）。默认 0.025 */
@@ -230,6 +242,8 @@ export const LEVEL_1: LevelData = {
     bowlEdgeInset: 4,
     centerGravity: 0.006,
     stackHeightFactor: 18,
+    crossLayerSkipThreshold: 3,
+    soupLayerCutoff: 2,
 
     // 生成节奏
     spawnStagger: 0.025,
