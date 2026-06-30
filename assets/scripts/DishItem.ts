@@ -319,8 +319,12 @@ export class DishItem extends Component {
         this.node.emit(DishEvent.Tapped, this);
     }
 
-    flyToSlot(worldPos: Vec3, onArrive: () => void) {
-        if (this._consumed) return;
+    /**
+     * 飞向目标世界坐标。允许多次调用（暂存槽→订单槽的二次飞行需要这个）。
+     * finalScale：飞行结束时的最终缩放（默认 1）。飞行末段做 0.9× 过冲后落到 finalScale。
+     * 不会自动销毁；要常驻请配合 settleAt。
+     */
+    flyToSlot(worldPos: Vec3, onArrive: () => void, finalScale: number = 1) {
         this._consumed = true;
         this._state = DishPhysicsState.Consumed;
         this.node.off(Node.EventType.TOUCH_END, this._onTap, this);
@@ -331,13 +335,32 @@ export class DishItem extends Component {
         Tween.stopAllByTarget(this.node);
         if (this._visualNode) Tween.stopAllByTarget(this._visualNode);
 
+        const undershoot = finalScale * 0.9;
         tween(this.node)
             .to(0.08, { scale: new Vec3(1.2, 1.2, 1) })
             .to(0.28, { position: localTarget }, { easing: 'cubicIn' })
-            .to(0.08, { scale: new Vec3(0.9, 0.9, 1) })
-            .to(0.08, { scale: new Vec3(1, 1, 1) })
+            .to(0.08, { scale: new Vec3(undershoot, undershoot, 1) })
+            .to(0.08, { scale: new Vec3(finalScale, finalScale, 1) })
             .call(() => onArrive())
             .start();
+    }
+
+    /**
+     * 把当前食材重新挂载到 parent 下，设置 local position 与 sibling index。
+     * 用于飞行结束后让食材"落"在目标 cell 里常驻显示。
+     * 保持 _consumed = true，update 循环、点击 handler、bowl 物理都不再介入。
+     */
+    settleAt(parent: Node, localPos: Vec3, siblingIdx?: number) {
+        Tween.stopAllByTarget(this.node);
+        if (this._visualNode) Tween.stopAllByTarget(this._visualNode);
+        this.node.removeFromParent();
+        parent.addChild(this.node);
+        this.node.setPosition(localPos);
+        if (siblingIdx !== undefined) {
+            this.node.setSiblingIndex(siblingIdx);
+        }
+        this._consumed = true;
+        this._state = DishPhysicsState.Consumed;
     }
 
     poofAndDestroy() {

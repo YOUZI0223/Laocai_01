@@ -3,13 +3,15 @@ import {
     Label, tween, Tween, Sprite, SpriteFrame,
 } from 'cc';
 import { DishType, DISH_META, SLOT_COUNT, FAIL_SLOT_FILL } from './LevelConfig';
+import { DishItem } from './DishItem';
 
 const { ccclass, property } = _decorator;
 
 interface SlotCell {
     node: Node;
     type: DishType | null;
-    label: Label;
+    label: Label | null;     // 外部预置 cell 时无 label
+    dish: DishItem | null;   // 落位在此 cell 的食材；常驻显示，被 takeAllOfType 或 clear 时移走
 }
 
 export const SlotEvent = {
@@ -47,14 +49,7 @@ export class SlotBar extends Component {
             cellNode.addComponent(UITransform).setContentSize(this.cellWidth, this.cellHeight);
             cellNode.setPosition(startX + i * (this.cellWidth + this.cellGap), 0, 0);
 
-            const g = cellNode.addComponent(Graphics);
-            g.fillColor = new Color(245, 245, 235, 255);
-            g.strokeColor = new Color(80, 80, 80, 255);
-            g.lineWidth = 3;
-            g.roundRect(-this.cellWidth * 0.5, -this.cellHeight * 0.5, this.cellWidth, this.cellHeight, 14);
-            g.fill();
-            g.stroke();
-
+            // 无背景，等 applyCellSprite 灌入美术
             const lblNode = new Node('lbl');
             lblNode.layer = this.node.layer;
             cellNode.addChild(lblNode);
@@ -63,7 +58,24 @@ export class SlotBar extends Component {
             lbl.fontSize = 22;
             lbl.color = new Color(50, 50, 50, 255);
 
-            this._cells.push({ node: cellNode, type: null, label: lbl });
+            this._cells.push({ node: cellNode, type: null, label: lbl, dish: null });
+        }
+    }
+
+    /**
+     * 用外部预先在场景中摆好的节点取代脚本自建的 cells（位置、缩放、美术都由用户在场景里控制）。
+     * 调用方应在 addComponent(SlotBar) 之后调用。
+     */
+    useExternalCells(nodes: Node[]) {
+        // 释放 onLoad 自动构建的子节点
+        for (const c of this._cells) {
+            if (c.node && c.node.parent === this.node) c.node.destroy();
+        }
+        this._cells = [];
+        for (const n of nodes) {
+            if (!n) continue;
+            n.active = true;  // 编辑器可能为整理视图隐藏，运行时强制启用
+            this._cells.push({ node: n, type: null, label: null, dish: null });
         }
     }
 
@@ -87,6 +99,26 @@ export class SlotBar extends Component {
         return null;
     }
 
+    /** 找出第一个空 cell 的索引，没有则返回 -1。 */
+    findFirstEmptyIdx(): number {
+        for (let i = 0; i < this._cells.length; i++) {
+            if (this._cells[i].type === null) return i;
+        }
+        return -1;
+    }
+
+    /** 给定 cell 索引取出节点世界坐标，越界返回 null。 */
+    cellWorldPos(idx: number): Vec3 | null {
+        if (idx < 0 || idx >= this._cells.length) return null;
+        return this._cells[idx].node.getWorldPosition();
+    }
+
+    /** 返回 cell 节点（外部需要 reparent 到它）。 */
+    cellNode(idx: number): Node | null {
+        if (idx < 0 || idx >= this._cells.length) return null;
+        return this._cells[idx].node;
+    }
+
     getDropTarget(type: DishType): { cell: SlotCell; worldPos: Vec3 } | null {
         const c = this.findEmpty();
         if (!c) return null;
@@ -99,12 +131,13 @@ export class SlotBar extends Component {
         return n;
     }
 
+    /** 旧 API：仅登记类型，不绑定 dish。新流程改用 acceptDishAt。 */
     accept(type: DishType): { full: boolean } {
         const c = this.findEmpty();
         if (!c) return { full: true };
 
         c.type = type;
-        c.label.string = DishType[type] as string;
+        if (c.label) c.label.string = DishType[type] as string;
         this._pulse(c.node);
 
         const occ = this.occupiedCount();
@@ -113,6 +146,36 @@ export class SlotBar extends Component {
             return { full: true };
         }
         return { full: false };
+    }
+
+    /** 在指定索引上登记类型 + 绑定 DishItem 引用（食材已经被 settleAt 落到 cell 节点下）。 */
+    acceptDishAt(idx: number, type: DishType, dish: DishItem): { full: boolean } {
+        if (idx < 0 || idx >= this._cells.length) return { full: false };
+        const c = this._cells[idx];
+        c.type = type;
+        c.dish = dish;
+        if (c.label) c.label.string = DishType[type] as string;
+        this._pulse(c.node);
+
+        const occ = this.occupiedCount();
+        if (occ >= FAIL_SLOT_FILL) {
+            this.node.emit(SlotEvent.Full, occ);
+            return { full: true };
+        }
+        return { full: false };
+    }
+
+    /** 取出所有指定类型的 dish 引用，并清空对应 cell 状态。caller 拿去飞往订单格。 */
+    takeAllOfType(type: DishType): { idx: number; dish: DishItem | null }[] {
+        const out: { idx: number; dish: DishItem | null }[] = [];
+        for (let i = 0; i < this._cells.length; i++) {
+            const c = this._cells[i];
+            if (c.type === type) {
+                out.push({ idx: i, dish: c.dish });
+                this._clear(c);
+            }
+        }
+        return out;
     }
 
     drainType(type: DishType): number {
@@ -125,7 +188,8 @@ export class SlotBar extends Component {
 
     private _clear(c: SlotCell) {
         c.type = null;
-        c.label.string = '';
+        c.dish = null;
+        if (c.label) c.label.string = '';
     }
 
     private _pulse(n: Node) {

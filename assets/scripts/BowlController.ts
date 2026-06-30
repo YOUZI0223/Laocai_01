@@ -70,26 +70,17 @@ export class BowlController extends Component {
     }
 
     private _drawBowlVisual() {
-        const bgNode = new Node('bowl-bg');
-        bgNode.layer = this.node.layer;
-        this.node.addChild(bgNode);
-        bgNode.addComponent(UITransform);
-        const g = bgNode.addComponent(Graphics);
-        g.fillColor = new Color(220, 220, 230, 255);
-        g.strokeColor = new Color(120, 120, 140, 255);
-        g.lineWidth = 6;
-        g.circle(0, 0, this.radius + 8);
-        g.fill();
-        g.stroke();
-
+        // 占位空节点，等 applyBowlSkin 灌入汤水/碗体
+        // 顺序：water 先建（最底层渲染），bg 后建（盖在 water 之上，碗壁挡住水边）
         const water = new Node('bowl-water');
         water.layer = this.node.layer;
         this.node.addChild(water);
         water.addComponent(UITransform);
-        const gw = water.addComponent(Graphics);
-        gw.fillColor = new Color(232, 240, 220, 220);
-        gw.circle(0, 0, this.radius);
-        gw.fill();
+
+        const bgNode = new Node('bowl-bg');
+        bgNode.layer = this.node.layer;
+        this.node.addChild(bgNode);
+        bgNode.addComponent(UITransform);
     }
 
     private _buildBubbleLayer() {
@@ -164,6 +155,7 @@ export class BowlController extends Component {
             water.removeAllChildren();
             const ui = water.getComponent(UITransform) ?? water.addComponent(UITransform);
             ui.setContentSize(this.radius * 2, this.radius * 2);
+            // 直接实例化，保留 prefab 自身的尺寸（要改大小直接改 prefab）
             const inst = instantiate(waterPrefab);
             inst.layer = water.layer;
             water.addChild(inst);
