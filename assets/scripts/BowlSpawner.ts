@@ -17,7 +17,9 @@ export class BowlSpawner extends Component {
     private _pendingSpawnQueue: DishType[] = [];
 
     private _profile(type: DishType) {
-        return buildDishProfile(type, this.dishVariants[type]);
+        // 按 type 字段匹配 variant 槽，数组顺序与 DishType 索引解耦
+        const variant = this.dishVariants.find(v => v && v.type === type) ?? null;
+        return buildDishProfile(type, variant);
     }
 
     spawnInitial(level: LevelData, allOrderTypes: DishType[]) {

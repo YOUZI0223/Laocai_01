@@ -458,10 +458,6 @@ export class PlayableSceneBuilder extends Component {
             }
         }, this);
 
-        slots.node.on(SlotEvent.Matched, (type: DishType) => {
-            orders.contributeFromSlot(type, 3);
-        }, this);
-
         slots.node.on(SlotEvent.Full, () => {
             this._fail();
         }, this);

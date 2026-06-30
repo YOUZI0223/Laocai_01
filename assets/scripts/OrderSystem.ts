@@ -82,7 +82,7 @@ export class OrderSystem extends Component {
 
             this._cells.push({
                 node: c, label: lbl, progress: p,
-                spec: { type: DishType.Cabbage, need: 3 }, filled: 0,
+                spec: { type: DishType.卷心菜, need: 3 }, filled: 0,
             });
         }
     }
@@ -140,7 +140,7 @@ export class OrderSystem extends Component {
         const c = this._cells[idx];
         c.spec = { type: spec.type, need: spec.need };
         c.filled = 0;
-        c.label.string = DISH_META[spec.type].name;
+        c.label.string = DishType[spec.type] as string;
         c.progress.string = `0 / ${spec.need}`;
     }
 

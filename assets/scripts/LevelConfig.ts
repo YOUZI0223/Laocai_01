@@ -1,24 +1,28 @@
 import { Color, _decorator, Enum } from 'cc';
 const { ccclass, property } = _decorator;
 
+/**
+ * 食材类型枚举。成员名 = 订单卡 / 槽位 / Inspector 下拉显示的名字。
+ * 想重命名某种食材，直接改这里的标识符即可（数值不要改，与场景序列化绑定）。
+ * 全局通过 DishType[value] 反向取名，所以只有一个源头。
+ */
 export enum DishType {
-    Cabbage = 0,    // 卷心菜  浅绿
-    Broccoli = 1,   // 西兰花  深绿
-    BokChoy = 2,    // 小白菜  翠绿+白
-    Cilantro = 3,   // 香菜    碎深绿
-    Okra = 4,       // 秋葵    长条绿
-    Avocado = 5,    // 牛油果  棕黄
-    Scallion = 6,   // 葱      白+绿
-    BambooShoot = 7,// 竹笋    米黄
-    GreenPepper = 8,// 青椒    中绿
-    Lettuce = 9,    // 生菜叶  浅绿
+    卷心菜 = 0,
+    西兰花 = 1,
+    小白菜 = 2,
+    香菜 = 3,
+    秋葵 = 4,
+    牛油果 = 5,
+    葱 = 6,
+    竹笋 = 7,
+    青椒 = 8,
+    生菜叶 = 9,
 }
 
 export const DISH_COUNT = 10;
 
 export interface DishMeta {
     type: DishType;
-    name: string;
     color: Color;
     radius: number;
     /** 重量。占位分离时按 weight 比分配位移。 */
@@ -49,43 +53,43 @@ export interface DishMeta {
 // 三级定档：大型 / 中型 / 小型
 // 大食材重、稳、晃动小、上浮慢；小食材轻、容易被挤开、上浮快晃动明显。
 export const DISH_META: ReadonlyArray<DishMeta> = [
-    { type: DishType.Cabbage,     name: '卷心菜',   color: new Color(168, 222, 130, 255), radius: 72,
+    { type: DishType.卷心菜,   color: new Color(168, 222, 130, 255), radius: 72,
       weight: 3.0, elasticity: 0.18, damping: 0.65, rotationRange: 6,  upSpeed: 0.55, upDrift: 10,
       hitSquishScale: 0.10, hitSquishDuration: 0.20, hitSwingAngle: 6,  hitSwingDuration: 0.40,
       displayZOffset: -5 },
-    { type: DishType.Broccoli,    name: '西兰花',   color: new Color( 56, 122,  58, 255), radius: 70,
+    { type: DishType.西兰花,   color: new Color( 56, 122,  58, 255), radius: 70,
       weight: 3.0, elasticity: 0.16, damping: 0.70, rotationRange: 5,  upSpeed: 0.55, upDrift: 9,
       hitSquishScale: 0.09, hitSquishDuration: 0.18, hitSwingAngle: 5,  hitSwingDuration: 0.38,
       displayZOffset: -5 },
-    { type: DishType.BokChoy,     name: '小白菜',   color: new Color(180, 226, 140, 255), radius: 60,
+    { type: DishType.小白菜,   color: new Color(180, 226, 140, 255), radius: 60,
       weight: 2.4, elasticity: 0.22, damping: 0.55, rotationRange: 10, upSpeed: 0.48, upDrift: 14,
       hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 12, hitSwingDuration: 0.48,
       displayZOffset: -1 },
-    { type: DishType.Cilantro,    name: '香菜',     color: new Color( 78, 138,  62, 255), radius: 55,
+    { type: DishType.香菜,     color: new Color( 78, 138,  62, 255), radius: 55,
       weight: 1.8, elasticity: 0.28, damping: 0.40, rotationRange: 18, upSpeed: 0.40, upDrift: 20,
       hitSquishScale: 0.06, hitSquishDuration: 0.14, hitSwingAngle: 28, hitSwingDuration: 0.65,
       displayZOffset: 4 },
-    { type: DishType.Okra,        name: '秋葵',     color: new Color(108, 168,  78, 255), radius: 47,
+    { type: DishType.秋葵,     color: new Color(108, 168,  78, 255), radius: 47,
       weight: 1.6, elasticity: 0.26, damping: 0.45, rotationRange: 15, upSpeed: 0.40, upDrift: 18,
       hitSquishScale: 0.08, hitSquishDuration: 0.16, hitSwingAngle: 22, hitSwingDuration: 0.58,
       displayZOffset: 2 },
-    { type: DishType.Avocado,     name: '牛油果',   color: new Color(196, 168,  76, 255), radius: 62,
+    { type: DishType.牛油果,   color: new Color(196, 168,  76, 255), radius: 62,
       weight: 2.6, elasticity: 0.20, damping: 0.55, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
       hitSquishScale: 0.11, hitSquishDuration: 0.20, hitSwingAngle: 8,  hitSwingDuration: 0.42,
       displayZOffset: -3 },
-    { type: DishType.Scallion,    name: '葱',       color: new Color(238, 240, 196, 255), radius: 50,
+    { type: DishType.葱,       color: new Color(238, 240, 196, 255), radius: 50,
       weight: 1.5, elasticity: 0.30, damping: 0.40, rotationRange: 22, upSpeed: 0.38, upDrift: 22,
       hitSquishScale: 0.07, hitSquishDuration: 0.14, hitSwingAngle: 32, hitSwingDuration: 0.70,
       displayZOffset: 4 },
-    { type: DishType.BambooShoot, name: '竹笋',     color: new Color(236, 222, 168, 255), radius: 60,
+    { type: DishType.竹笋,     color: new Color(236, 222, 168, 255), radius: 60,
       weight: 2.5, elasticity: 0.18, damping: 0.60, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
       hitSquishScale: 0.10, hitSquishDuration: 0.19, hitSwingAngle: 9,  hitSwingDuration: 0.43,
       displayZOffset: -3 },
-    { type: DishType.GreenPepper, name: '青椒',     color: new Color(110, 174,  86, 255), radius: 57,
+    { type: DishType.青椒,     color: new Color(110, 174,  86, 255), radius: 57,
       weight: 2.3, elasticity: 0.22, damping: 0.50, rotationRange: 10, upSpeed: 0.45, upDrift: 15,
       hitSquishScale: 0.12, hitSquishDuration: 0.21, hitSwingAngle: 11, hitSwingDuration: 0.47,
       displayZOffset: 0 },
-    { type: DishType.Lettuce,     name: '生菜叶',   color: new Color(174, 220, 138, 255), radius: 57,
+    { type: DishType.生菜叶,   color: new Color(174, 220, 138, 255), radius: 57,
       weight: 2.2, elasticity: 0.24, damping: 0.50, rotationRange: 12, upSpeed: 0.45, upDrift: 16,
       hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 14, hitSwingDuration: 0.50,
       displayZOffset: 0 },
@@ -94,7 +98,7 @@ export const DISH_META: ReadonlyArray<DishMeta> = [
 @ccclass('OrderSpec')
 export class OrderSpec {
     @property({ type: Enum(DishType), tooltip: '订单要求的食材类型' })
-    type: DishType = DishType.Cabbage;
+    type: DishType = DishType.卷心菜;
 
     @property({ tooltip: '订单需要的数量' })
     need: number = 3;
@@ -210,20 +214,20 @@ export const LEVEL_1: LevelData = {
 
     // 开局 4 个订单
     initialOrders: [
-        Object.assign(new OrderSpec(), { type: DishType.Cabbage,  need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.Broccoli, need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.Avocado,  need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.Cilantro, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.卷心菜, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.西兰花, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.牛油果, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.香菜,   need: 3 }),
     ],
 
     // 订单池 6 单，按顺序抽取
     orderPool: [
-        Object.assign(new OrderSpec(), { type: DishType.BokChoy,     need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.Okra,        need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.Scallion,    need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.BambooShoot, need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.GreenPepper, need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.Lettuce,     need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.小白菜, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.秋葵,   need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.葱,     need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.竹笋,   need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.青椒,   need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.生菜叶, need: 3 }),
     ],
     poolPickStrategy: PoolPickStrategy.Sequential,
 

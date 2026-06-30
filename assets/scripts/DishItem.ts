@@ -1,6 +1,6 @@
 import {
     _decorator, Component, Node, UITransform, Graphics, Color, Vec3, EventTouch,
-    Tween, tween, UIOpacity, Label, Sprite, SpriteFrame, director,
+    Tween, tween, UIOpacity, Sprite, SpriteFrame, director,
 } from 'cc';
 import { DishType, DISH_META } from './LevelConfig';
 import { DishProfile } from './ArtTypes';
@@ -23,7 +23,7 @@ export enum DishPhysicsState {
 @ccclass('DishItem')
 export class DishItem extends Component {
 
-    private _type: DishType = DishType.Cabbage;
+    private _type: DishType = DishType.卷心菜;
     private _visualR: number = 40;
     private _collR: number = 40;
     private _weight: number = 2;
@@ -116,12 +116,12 @@ export class DishItem extends Component {
         ui.setContentSize(this._visualR * 2, this._visualR * 2);
 
         const meta = DISH_META[this._type];
-        this._buildVisual(meta.color, profile.name, profile.sprite);
+        this._buildVisual(meta.color, profile.sprite);
 
         this.node.on(Node.EventType.TOUCH_END, this._onTap, this);
     }
 
-    private _buildVisual(color: Color, label: string, sf: SpriteFrame | null) {
+    private _buildVisual(color: Color, sf: SpriteFrame | null) {
         const visualNode = new Node('visual');
         visualNode.layer = this.node.layer;
         this.node.addChild(visualNode);
@@ -138,6 +138,7 @@ export class DishItem extends Component {
             return;
         }
 
+        // 无 sprite 时退回纯色圆，不再叠加文字标签（避免遮挡 sprite 兜底视觉）
         const gfx = visualNode.addComponent(Graphics);
         gfx.fillColor = color;
         gfx.strokeColor = Color.BLACK;
@@ -145,15 +146,6 @@ export class DishItem extends Component {
         gfx.circle(0, 0, this._visualR);
         gfx.fill();
         gfx.stroke();
-
-        const labelNode = new Node('lbl');
-        labelNode.layer = this.node.layer;
-        visualNode.addChild(labelNode);
-        const lbl = labelNode.addComponent(Label);
-        lbl.string = label;
-        lbl.fontSize = Math.max(14, Math.floor(this._visualR * 0.42));
-        lbl.lineHeight = lbl.fontSize + 2;
-        lbl.color = new Color(20, 30, 20, 255);
     }
 
     /**

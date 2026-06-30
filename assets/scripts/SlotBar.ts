@@ -13,8 +13,7 @@ interface SlotCell {
 }
 
 export const SlotEvent = {
-    Matched: 'slot-matched',     // (type)
-    Full: 'slot-full',           // (occupiedCount) — fires when occupied >= FAIL_SLOT_FILL with no match
+    Full: 'slot-full',           // (occupiedCount) — fires when occupied >= FAIL_SLOT_FILL
 } as const;
 
 @ccclass('SlotBar')
@@ -100,26 +99,20 @@ export class SlotBar extends Component {
         return n;
     }
 
-    accept(type: DishType): { matched: boolean; full: boolean } {
+    accept(type: DishType): { full: boolean } {
         const c = this.findEmpty();
-        if (!c) return { matched: false, full: true };
+        if (!c) return { full: true };
 
         c.type = type;
-        c.label.string = DISH_META[type].name;
+        c.label.string = DishType[type] as string;
         this._pulse(c.node);
 
-        const same = this._cells.filter(x => x.type === type);
-        if (same.length >= 3) {
-            for (let i = 0; i < 3; i++) this._clear(same[i]);
-            this.node.emit(SlotEvent.Matched, type);
-            return { matched: true, full: false };
-        }
         const occ = this.occupiedCount();
         if (occ >= FAIL_SLOT_FILL) {
             this.node.emit(SlotEvent.Full, occ);
-            return { matched: false, full: true };
+            return { full: true };
         }
-        return { matched: false, full: false };
+        return { full: false };
     }
 
     drainType(type: DishType): number {

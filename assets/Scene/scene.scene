@@ -491,9 +491,9 @@
     "overlapTolerance": 18,
     "bowlEdgeInset": 4,
     "centerGravity": 0.006,
-    "stackHeightFactor": 5,
-    "crossLayerSkipThreshold": 3,
-    "soupLayerCutoff": 2,
+    "stackHeightFactor": 18,
+    "crossLayerSkipThreshold": 4,
+    "soupLayerCutoff": -4,
     "spawnStagger": 0.025,
     "refillStagger": 0.08,
     "scatterMinDistFactor": 0.55,
@@ -724,6 +724,7 @@
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "28f2de2f-13fc-4d4a-bcd1-081cb46acce6@f9941",
@@ -741,10 +742,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "e6944b8d-572c-4096-8380-2329b2f54afe@f9941",
@@ -762,10 +766,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "42b75500-3916-4a7d-ac9e-7dd645991a6f@f9941",
@@ -783,10 +790,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "7a88ed5c-ca69-496c-b055-30d21c1beaaf@f9941",
@@ -804,10 +814,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "6cd505d9-2f93-452f-9e31-a91129a571d9@f9941",
@@ -825,10 +838,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "672b6f95-6070-4e50-8cf3-cf5d51b25dc5@f9941",
@@ -846,10 +862,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "74f37cd5-f069-44d8-99b6-bc1152fd0d88@f9941",
@@ -867,10 +886,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "5cfab487-4649-492f-9c69-a9ed20ed47d2@f9941",
@@ -888,10 +910,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "b7ad121f-2bb0-4c28-bde9-51050dd74d75@f9941",
@@ -909,10 +934,13 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "DishSpriteVariants",
+    "type": 0,
     "sprites": [
       {
         "__uuid__": "8614616d-5b43-4d4f-a9ba-01396612f981@f9941",
@@ -930,7 +958,9 @@
     "damping": 0,
     "rotationRange": 0,
     "upSpeed": 0,
-    "upDrift": 0
+    "upDrift": 0,
+    "overrideZOffset": false,
+    "displayZOffset": 0
   },
   {
     "__type__": "cc.SceneGlobals",

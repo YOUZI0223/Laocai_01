@@ -1,9 +1,12 @@
-import { _decorator, SpriteFrame } from 'cc';
+import { _decorator, Enum, SpriteFrame } from 'cc';
 import { DishType, DISH_META, DishMeta } from './LevelConfig';
 const { ccclass, property } = _decorator;
 
 @ccclass('DishSpriteVariants')
 export class DishSpriteVariants {
+    @property({ type: Enum(DishType), tooltip: '此槽对应的食材类型。运行时按此字段匹配，数组顺序不再绑定 DishType 索引。下拉显示的名字 = DishType 枚举成员名（改 LevelConfig.ts 即可重命名）' })
+    type: DishType = DishType.卷心菜;
+
     @property([SpriteFrame])
     sprites: SpriteFrame[] = [];
 
@@ -30,6 +33,16 @@ export class DishSpriteVariants {
 
     @property({ tooltip: '上浮过程横向漂移幅度（像素）。0 = 用 DISH_META 默认。' })
     upDrift: number = 0;
+
+    @property({ tooltip: '勾上才启用下面自定义的 displayZOffset。不勾则使用 DISH_META 默认值（兼容旧场景）' })
+    overrideZOffset: boolean = false;
+
+    @property({
+        tooltip: '显示 Z 偏移。负值沉底（大食材沉到锅底），正值浮顶（碎绿叶浮在表面）。建议范围 -5~+5。需勾上 overrideZOffset 才生效',
+        range: [-10, 10, 1],
+        slide: true,
+    })
+    displayZOffset: number = 0;
 }
 
 export interface DishProfile {
@@ -66,7 +79,7 @@ export function buildDishProfile(type: DishType, variant: DishSpriteVariants | n
     const collR = pickN(variant?.colliderRadius ?? 0, visualR);
     return {
         type,
-        name: meta.name,
+        name: DishType[type] as string,
         visualR,
         collR,
         weight: pickN(variant?.weight ?? 0, meta.weight),
@@ -80,6 +93,6 @@ export function buildDishProfile(type: DishType, variant: DishSpriteVariants | n
         hitSquishDuration: meta.hitSquishDuration,
         hitSwingAngle:     meta.hitSwingAngle,
         hitSwingDuration:  meta.hitSwingDuration,
-        displayZOffset:    meta.displayZOffset,
+        displayZOffset:    variant?.overrideZOffset ? variant.displayZOffset : meta.displayZOffset,
     };
 }
