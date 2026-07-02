@@ -2,6 +2,7 @@ import {
     _decorator, Component, Node, UITransform, Color, Label, Vec3, Graphics,
     tween, Tween, UIOpacity, EventTouch,
     Sprite, SpriteFrame, Prefab, instantiate,
+    AudioClip, AudioSource,
 } from 'cc';
 import { DishSpriteVariants } from './ArtTypes';
 import { GameManager, GameState } from './GameManager';
@@ -64,18 +65,25 @@ export class PlayableSceneBuilder extends Component {
     bowlY: number = -312;
 
     @property({
-        tooltip: '食材飞到订单格落位时的最终缩放系数。建议 0.4~0.8',
+        tooltip: '食材飞到订单格后，相对"刚好装满 cell"的缩放比例。1.0=贴 cell 边框，0.5~0.6=约占 cell 一半（便于三个食材共存不重叠太多）',
         range: [0.1, 1.5, 0.05],
         slide: true,
     })
-    orderDishScale: number = 0.6;
+    orderDishScale: number = 0.55;
 
     @property({
-        tooltip: '食材飞到暂存槽落位时的最终缩放系数。建议 0.4~0.8',
+        tooltip: '食材飞到暂存槽后，相对"刚好装满 cell"的缩放比例。1.0=贴 cell 边框，0.8~0.9=留一点安全边',
         range: [0.1, 1.5, 0.05],
         slide: true,
     })
-    slotDishScale: number = 0.6;
+    slotDishScale: number = 0.85;
+
+    @property({
+        tooltip: '气泡里食材图标的目标外框边长（正方形）。图标以此为参考，按原图比例较长边贴合。完全不依赖场景中 bubbleIcons 节点尺寸，避免受任何父级 Layout / 非等比 scale 干扰',
+        range: [20, 200, 2],
+        slide: true,
+    })
+    bubbleIconBoxSize: number = 80;
 
     @property({ type: Node, tooltip: '打乱按钮根节点。位置/缩放/美术由场景中预置；脚本只挂点击事件和动态 ×N 数字。留空则脚本程序化建一个按钮' })
     shuffleBtnSlot: Node | null = null;
@@ -97,7 +105,8 @@ export class PlayableSceneBuilder extends Component {
     @property({ type: Prefab, tooltip: '汤面中间带 Prefab（位于第二层与第三层食材之间，含 Sprite + Animation 序列帧组件）' })
     soupSurfacePrefab: Prefab | null = null;
 
-    // 10 种食材按 DishType 顺序：0卷心菜 1西兰花 2小白菜 3香菜 4秋葵 5牛油果 6葱 7竹笋 8青椒 9生菜叶
+    // 17 种食材按 DishType 顺序：0卷心菜 1西兰花 2花菜 3香菜 4黄瓜片 5南瓜 6大葱 7柠檬片 8青椒 9生菜叶
+    //                          10青菜 11芹菜 12哈密瓜 13茄子 14甜菜 15红椒 16洋葱片
     @property([DishSpriteVariants])
     dishVariants: DishSpriteVariants[] = [];
 
@@ -123,12 +132,92 @@ export class PlayableSceneBuilder extends Component {
     @property({ type: SpriteFrame, tooltip: '🔀 打乱按钮整张图（建议 9-slice）' })
     shuffleBtnSprite: SpriteFrame | null = null;
 
-    // 结算
-    @property({ type: SpriteFrame, tooltip: '胜利覆盖屏背景（建议铺满 786×1704）' })
-    winOverlaySprite: SpriteFrame | null = null;
+    // 新手引导：手指节点 + 目标个数 + 启动延迟 + 手指相对目标偏移
+    @property({ type: Node, tooltip: '新手引导手指节点。运行时脚本 reparent 到脚本根，指向锅内高亮食材，做呼吸缩放动画引导玩家点击。留空则跳过引导' })
+    tutorialFinger: Node | null = null;
 
-    @property({ type: SpriteFrame, tooltip: '失败覆盖屏背景（建议铺满 786×1704）' })
-    failOverlaySprite: SpriteFrame | null = null;
+    @property({
+        tooltip: '新手引导：延迟启动时间（秒）。等待初始食材上浮动画结束。太小手指会指到还在飞的食材',
+        range: [0, 5, 0.1],
+        slide: true,
+    })
+    tutorialStartDelay: number = 1.6;
+
+    @property({
+        tooltip: '新手引导高亮食材数量。一般 = 首个订单的 need（默认 3）',
+        range: [1, 5, 1],
+        slide: true,
+    })
+    tutorialHighlightCount: number = 3;
+
+    @property({
+        tooltip: '手指相对目标食材的 X 偏移（像素）。正右负左',
+        range: [-200, 200, 5],
+        slide: true,
+    })
+    tutorialFingerOffsetX: number = 30;
+
+    @property({
+        tooltip: '手指相对目标食材的 Y 偏移（像素）。正上负下',
+        range: [-200, 200, 5],
+        slide: true,
+    })
+    tutorialFingerOffsetY: number = -40;
+
+    @property({
+        tooltip: '手指呼吸缩放动画：最大缩放值。1.15 = 放大到 115% 再回落',
+        range: [1.0, 1.5, 0.02],
+        slide: true,
+    })
+    tutorialFingerBreathScale: number = 1.15;
+
+    @property({
+        tooltip: '手指呼吸动画半个周期时长（秒）。0.5 = 每 1 秒完成一次放大回缩',
+        range: [0.2, 1.5, 0.05],
+        slide: true,
+    })
+    tutorialFingerBreathDur: number = 0.5;
+
+    // 结算：预置在场景里的整个覆盖节点（含背景 Sprite / Label / 按钮等）
+    @property({ type: Node, tooltip: '胜利覆盖屏节点。运行时初始隐藏；触发 Win 时脚本会 reparent 到脚本根最上层并播弹性动画' })
+    winOverlay: Node | null = null;
+
+    @property({ type: Node, tooltip: '失败覆盖屏节点。运行时初始隐藏；触发 Fail 时脚本会 reparent 到脚本根最上层并播弹性动画' })
+    failOverlay: Node | null = null;
+
+    @property({ type: Node, tooltip: '结算压暗遮罩节点（Win/Fail 共用）。用户设 Sprite color 的 alpha 决定最终暗度，脚本 fade in 到该值。位于 overlay 下方一层' })
+    dimmerOverlay: Node | null = null;
+
+    // ── 音效 ─────────────────────────────────────────────
+    @property({ type: AudioClip, tooltip: '食材初始生成（整锅入场上浮）时的音效' })
+    sfxDishSpawn: AudioClip | null = null;
+
+    @property({ type: AudioClip, tooltip: '点击锅内食材的音效' })
+    sfxDishTap: AudioClip | null = null;
+
+    @property({ type: AudioClip, tooltip: '订单完成（消除）时的音效' })
+    sfxOrderCompleted: AudioClip | null = null;
+
+    @property({ type: AudioClip, tooltip: '新订单刷新（补入订单池新单）时的音效。初始 4 个订单登场不触发' })
+    sfxOrderRefreshed: AudioClip | null = null;
+
+    @property({ tooltip: '新订单刷新音效的延迟播放时间（秒），避免和订单完成音效撞车', range: [0, 2, 0.05], slide: true })
+    sfxOrderRefreshedDelay: number = 0.4;
+
+    @property({ type: AudioClip, tooltip: '胜利结算音效' })
+    sfxWin: AudioClip | null = null;
+
+    @property({ type: AudioClip, tooltip: '失败结算音效' })
+    sfxFail: AudioClip | null = null;
+
+    @property({ tooltip: '全局音效音量（不影响胜利/失败结算音效，它们各自独立）', range: [0, 1, 0.05], slide: true })
+    sfxVolume: number = 0.8;
+
+    @property({ tooltip: '胜利结算音效音量（独立控制，覆盖 sfxVolume）', range: [0, 1, 0.05], slide: true })
+    sfxWinVolume: number = 0.8;
+
+    @property({ tooltip: '失败结算音效音量（独立控制，覆盖 sfxVolume）', range: [0, 1, 0.05], slide: true })
+    sfxFailVolume: number = 0.8;
     // ──────────────────────────────────────────────────────────────
 
     private _gm: GameManager | null = null;
@@ -137,11 +226,16 @@ export class PlayableSceneBuilder extends Component {
     private _slots: SlotBar | null = null;
     private _orders: OrderSystem | null = null;
 
-    private _winNode: Node | null = null;
-    private _failNode: Node | null = null;
 
     /** 顾客 home 位置（飞出飞入动画基准） */
     private _customerHomePos: Vec3[] = [];
+    /** 挂在 this.node 下的气泡食材视觉节点（每个订单一个），彻底脱离气泡节点层级 */
+    private _bubbleVisuals: (Node | null)[] = [];
+
+    /** 挂在脚本节点上的 AudioSource，用 playOneShot 播放所有 SFX */
+    private _audio: AudioSource | null = null;
+    /** OrderSystem.init 完成后为 true；用来抑制初始 4 单登场时误触发"新订单刷新"音效 */
+    private _ordersInitDone: boolean = false;
 
     /** 已落位在每个订单格里的食材数组（最多 need 个，三角分布） */
     private _orderDishes: DishItem[][] = [];
@@ -157,11 +251,19 @@ export class PlayableSceneBuilder extends Component {
     private _shuffleLabel: Label | null = null;
     private _shuffleRemaining: number = 0;
 
+    // ── 新手引导状态 ─────────────────────────────
+    /** 引导激活中：剩余未点击的高亮食材列表。手指恒指 [0]，玩家可乱序点，点一颗就 splice 一颗 */
+    private _tutorialActive: boolean = false;
+    private _tutorialTargets: DishItem[] = [];
+
     private get _level(): LevelData {
         return this.levelConfig ? this.levelConfig.toLevelData() : LEVEL_1;
     }
 
     onLoad() {
+        // AudioSource：全局 SFX 播放器，用 playOneShot 播每个 clip
+        this._audio = this.node.getComponent(AudioSource) ?? this.node.addComponent(AudioSource);
+
         // 每个订单格各一组三角分布的食材容器
         this._orderDishes = [];
         for (let i = 0; i < ORDER_COUNT; i++) this._orderDishes.push([]);
@@ -182,9 +284,14 @@ export class PlayableSceneBuilder extends Component {
     start() {
         const levelData = this._level;
         this._gm!.startLevel(levelData);
+        // OrderSystem.init 会同步 emit ORDER_COUNT 次 OrderRefreshed（初始 4 单登场）
+        // → 用 _ordersInitDone flag 抑制这段时间的音效，只在之后（补单）触发
+        this._ordersInitDone = false;
         this._orders!.init(levelData);
+        this._ordersInitDone = true;
         const allOrderTypes = this._orders!.getAllPendingTypes();
         this._spawner!.spawnInitial(levelData, allOrderTypes);
+        this._playSfx(this.sfxDishSpawn);
         this._shuffleRemaining = levelData.shuffleUses;
         this._refreshShuffleLabel();
 
@@ -192,6 +299,71 @@ export class PlayableSceneBuilder extends Component {
         for (let i = 0; i < ORDER_COUNT; i++) {
             this._updateCustomerBubble(i);
         }
+
+        // 新手引导：等初始食材上浮结束后再启动，避免手指指到还在飞行途中的食材
+        if (this.tutorialFinger) {
+            this.scheduleOnce(() => this._startTutorial(), this.tutorialStartDelay);
+        }
+    }
+
+    /**
+     * 气泡食材视觉挂在 this.node 下（脱离气泡节点层级），每帧同步锚点节点的
+     * 世界位置、显隐、累积透明度，让飞入飞出的 opacity 动画依然生效。
+     */
+    protected update(dt: number) {
+        for (let i = 0; i < ORDER_COUNT; i++) {
+            const visual = this._bubbleVisuals[i];
+            const anchor = this.bubbleIcons[i];
+            const bubble = this.bubbleRoots[i];
+            if (!visual || !anchor || !bubble) continue;
+
+            // 位置：锚点 world position → visual 父容器的 local space
+            const wp = anchor.node.getWorldPosition();
+            const parentUI = this.node.getComponent(UITransform);
+            if (parentUI) {
+                const local = parentUI.convertToNodeSpaceAR(wp);
+                visual.setPosition(local);
+            } else {
+                visual.setWorldPosition(wp);
+            }
+
+            // 显隐：跟随 bubbleRoots activeInHierarchy
+            visual.active = bubble.activeInHierarchy;
+
+            // 透明度：读锚点祖先链所有 UIOpacity 的累积值，写到 visual 的 UIOpacity
+            const cumOp = this._cumulativeOpacity(anchor.node);
+            const vop = visual.getComponent(UIOpacity);
+            if (vop) vop.opacity = cumOp;
+        }
+
+        // 新手引导手指跟随剩余列表的第一颗（玩家可乱序点，点掉哪颗就 splice 哪颗）
+        if (this._tutorialActive && this.tutorialFinger) {
+            const cur = this._tutorialTargets[0];
+            if (cur && cur.node && cur.node.isValid && !cur.isConsumed) {
+                const wp = cur.node.getWorldPosition();
+                const parentUI = this.node.getComponent(UITransform);
+                if (parentUI) {
+                    const local = parentUI.convertToNodeSpaceAR(wp);
+                    this.tutorialFinger.setPosition(
+                        local.x + this.tutorialFingerOffsetX,
+                        local.y + this.tutorialFingerOffsetY,
+                        0,
+                    );
+                }
+            }
+        }
+    }
+
+    /** 从节点自身到根，累乘 UIOpacity.opacity（0~255），返回 0~255 */
+    private _cumulativeOpacity(node: Node): number {
+        let mul = 1;
+        let cur: Node | null = node;
+        while (cur) {
+            const uio = cur.getComponent(UIOpacity);
+            if (uio) mul *= (uio.opacity / 255);
+            cur = cur.parent;
+        }
+        return Math.max(0, Math.min(255, Math.round(mul * 255)));
     }
 
     // ─────────────── 工具方法 ───────────────
@@ -261,6 +433,10 @@ export class PlayableSceneBuilder extends Component {
             } else {
                 this._customerHomePos.push(new Vec3());
             }
+            // 禁用场景预置 bubbleIcons 自身的 Sprite（防止占位图残留，且节点只当锚点用）
+            const icon = this.bubbleIcons[i];
+            if (icon) icon.enabled = false;
+            this._bubbleVisuals.push(null);
         }
     }
 
@@ -334,13 +510,33 @@ export class PlayableSceneBuilder extends Component {
             return;
         }
         if (root) root.active = true;
-        // 食材图标：按 type 字段从 dishVariants 找
-        const icon = this.bubbleIcons[idx];
-        if (icon) {
-            const variant = this.dishVariants.find(v => v && v.type === spec.type);
-            if (variant && variant.sprites && variant.sprites.length > 0) {
-                icon.spriteFrame = variant.sprites[0];
+        // 食材图标：视觉节点直接挂在 this.node（脚本根，绝对干净的容器）下。
+        // 场景中的 bubbleIcons[idx] 节点只贡献 world position（位置锚点），
+        // 一切 UITransform / Sprite / 父级 Layout / 非等比 scale 干扰在这里完全隔离。
+        const variant = this.dishVariants.find(v => v && v.type === spec.type);
+        if (variant && variant.sprites && variant.sprites.length > 0) {
+            const sf = variant.sprites[0];
+            let visual = this._bubbleVisuals[idx];
+            if (!visual) {
+                visual = new Node('_bubble_visual_' + idx);
+                visual.layer = this.node.layer;
+                this.node.addChild(visual);
+                visual.addComponent(UITransform);
+                visual.addComponent(Sprite);
+                visual.addComponent(UIOpacity);
+                this._bubbleVisuals[idx] = visual;
             }
+            const vsp = visual.getComponent(Sprite)!;
+            const vui = visual.getComponent(UITransform)!;
+            vsp.sizeMode = Sprite.SizeMode.CUSTOM;
+            vsp.type = Sprite.Type.SIMPLE;
+            vsp.spriteFrame = sf;
+            // UITransform = 原图 rect 尺寸（1:1 保比例）；视觉大小完全由等比 node.scale 控制
+            const rect = sf.rect;
+            vui.setContentSize(rect.width, rect.height);
+            const box = this.bubbleIconBoxSize;
+            const s = Math.min(box / rect.width, box / rect.height);
+            visual.setScale(s, s, 1);
         }
         const label = this.bubbleLabels[idx];
         if (label) {
@@ -470,7 +666,6 @@ export class PlayableSceneBuilder extends Component {
         const host = this._addUI(this.node, 'bowl', radius * 2 + 30, radius * 2 + 30, this.bowlY);
         const bowl = host.addComponent(BowlController);
         bowl.radius = radius;
-        bowl.refillThreshold = levelData.refillThreshold;
         bowl.applyLevelConfig(levelData);
         this._bowl = bowl;
         bowl.applyBowlSkin(this.bowlSprite, this.waterSprite, this.waterPrefab);
@@ -486,35 +681,69 @@ export class PlayableSceneBuilder extends Component {
     }
 
     private _buildEndScreens() {
-        const win = this._addUI(this.node, 'win', DESIGN_W, DESIGN_H, 0);
-        this._applySprite(win, this.winOverlaySprite);
-        // 无 sprite 时不画占位文字
-        win.active = false;
-        this._winNode = win;
+        // 场景中预置的 overlay 节点：初始隐藏，等待 _win/_fail 触发时 reparent + 弹性入场
+        if (this.winOverlay) this.winOverlay.active = false;
+        if (this.failOverlay) this.failOverlay.active = false;
+        if (this.dimmerOverlay) this.dimmerOverlay.active = false;
+        // 新手引导手指：初始隐藏，等 _startTutorial 触发时激活
+        if (this.tutorialFinger) this.tutorialFinger.active = false;
+    }
 
-        const fail = this._addUI(this.node, 'fail', DESIGN_W, DESIGN_H, 0);
-        this._applySprite(fail, this.failOverlaySprite);
-        fail.active = false;
-        this._failNode = fail;
+    /** 播放一次 SFX。clip 为空时静默跳过。volume 未传时用 sfxVolume 全局音量。 */
+    private _playSfx(clip: AudioClip | null, volume?: number) {
+        if (!clip || !this._audio) return;
+        this._audio.playOneShot(clip, volume !== undefined ? volume : this.sfxVolume);
+    }
+
+    /**
+     * 启用压暗遮罩：reparent 到脚本根末尾（会被之后 setSiblingIndex 的 overlay 压到其上），fade in。
+     * 最终透明度由用户在场景中 Sprite color.alpha 控制，脚本只把 UIOpacity 从 0 tween 到 255。
+     */
+    private _showDimmer() {
+        const d = this.dimmerOverlay;
+        if (!d) return;
+        d.setParent(this.node, true);
+        d.setSiblingIndex(this.node.children.length);
+        d.active = true;
+        const op = d.getComponent(UIOpacity) ?? d.addComponent(UIOpacity);
+        Tween.stopAllByTarget(op);
+        op.opacity = 0;
+        tween(op).to(0.25, { opacity: 255 }, { easing: 'sineOut' }).start();
+    }
+
+    /**
+     * 触发结算覆盖屏：reparent 到脚本根节点末尾（保证渲染在最上层，不被任何 UI 覆盖），
+     * 播放缩小 → 超大 → 回落的弹性入场 + 淡入。
+     */
+    private _showOverlayWithBounce(node: Node | null) {
+        if (!node) return;
+        node.setParent(this.node, true);                            // 保留 world transform
+        node.setSiblingIndex(this.node.children.length);            // clamp 到最后 → 最上层
+        node.active = true;
+
+        Tween.stopAllByTarget(node);
+        node.setScale(0.2, 0.2, 1);
+        tween(node)
+            .to(0.32, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'backOut' })
+            .to(0.14, { scale: new Vec3(1.0, 1.0, 1) }, { easing: 'sineOut' })
+            .start();
+
+        const op = node.getComponent(UIOpacity) ?? node.addComponent(UIOpacity);
+        Tween.stopAllByTarget(op);
+        op.opacity = 0;
+        tween(op).to(0.20, { opacity: 255 }, { easing: 'sineOut' }).start();
     }
 
     private _hookEvents() {
         const bowl = this._bowl!;
         const slots = this._slots!;
         const orders = this._orders!;
-        const spawner = this._spawner!;
         const gm = this._gm!;
 
         bowl.node.on(BowlEvent.DishTapped, (dish: DishItem) => {
             if (gm.state !== GameState.Play) return;
+            this._playSfx(this.sfxDishTap);
             this._handleDishTap(dish);
-        }, this);
-
-        bowl.node.on(BowlEvent.LowOnDishes, () => {
-            if (gm.state !== GameState.Play) return;
-            if (spawner.getPendingSpawnCount() > 0) {
-                spawner.refill(gm.level);
-            }
         }, this);
 
         slots.node.on(SlotEvent.Full, () => {
@@ -522,6 +751,7 @@ export class PlayableSceneBuilder extends Component {
         }, this);
 
         orders.node.on(OrderEvent.OrderCompleted, (_oldType: DishType, _newType: DishType, idx: number) => {
+            this._playSfx(this.sfxOrderCompleted);
             // 老订单的三角食材清空，给新订单腾位
             this._clearOrderDishes(idx);
             this._replaceCustomer(idx);
@@ -534,6 +764,9 @@ export class PlayableSceneBuilder extends Component {
             const taken = slots.takeAllOfType(type);
             for (const { dish } of taken) {
                 if (!dish || !dish.node || !dish.node.isValid) continue;
+                // 立即从暂存槽 cell 剥离到脚本根节点（中立飞行容器），保留世界坐标 →
+                // 暂存槽 cell 视觉即刻清空，dish 独立飞行不再挂在原 cell 下
+                dish.node.setParent(this.node, true);
                 if (this._orderDishes[orderIdx].length >= 3) {
                     // 订单已满（三角占满），剩余的退回销毁——理论上不太会发生
                     dish.node.destroy();
@@ -552,6 +785,11 @@ export class PlayableSceneBuilder extends Component {
         }, this);
 
         orders.node.on(OrderEvent.OrderRefreshed, (idx: number) => {
+            // init 期间 4 单登场也会 emit，用 flag 抑制；只有补单时才播刷新音效
+            // 延迟播放，避免和订单完成音效撞车
+            if (this._ordersInitDone) {
+                this.scheduleOnce(() => this._playSfx(this.sfxOrderRefreshed), this.sfxOrderRefreshedDelay);
+            }
             this._updateCustomerBubble(idx);
         }, this);
     }
@@ -561,6 +799,12 @@ export class PlayableSceneBuilder extends Component {
         const slots = this._slots!;
         const orders = this._orders!;
         const bowl = this._bowl!;
+
+        // 新手引导：若本次点击的是任一高亮食材（可乱序），从剩余列表移除，全部点完就收尾
+        if (this._tutorialActive) {
+            const idx = this._tutorialTargets.indexOf(dish);
+            if (idx >= 0) this._tutorialAdvance(idx);
+        }
 
         // 优先尝试飞向有空位的订单格
         const orderIdx = orders.findOrderIdx(type);
@@ -572,17 +816,57 @@ export class PlayableSceneBuilder extends Component {
             return;
         }
 
-        // 飞向暂存槽：常驻，等对应订单出现再启程
-        const slotIdx = slots.findFirstEmptyIdx();
+        // 飞向暂存槽：tap 瞬间就预占空 cell，防止飞行 tween 期间同类食材抢占同一格
+        const slotIdx = slots.reserveEmpty(type);
         if (slotIdx < 0) return;
         const targetCell = slots.cellNode(slotIdx)!;
         const targetWp = targetCell.getWorldPosition();
+        const slotFinalScale = this._computeFitScale(dish, targetCell) * this.slotDishScale;
         dish.flyToSlot(targetWp, () => {
             dish.settleAt(targetCell, new Vec3(0, 0, 0));
             slots.acceptDishAt(slotIdx, type, dish);
             bowl.checkLow();
+            // 落定后立即扫描：如果当前订单其实还有空位（并发或时序造成 dish 误入暂存槽），
+            // 把这颗 dish（连同暂存槽其它同 type 食材）拉去订单，避免孤立在暂存槽
+            this._pullFromSlotsIfNeeded(type);
             this._checkWin();
-        }, this.slotDishScale);
+        }, slotFinalScale);
+    }
+
+    /**
+     * 检查指定 type 的当前订单是否还有空位；若有，从暂存槽把所有同类食材拉出来飞往订单。
+     * 用来兜底"tap 时序判断把 dish 误送到暂存槽"或"暂存 dish 与订单需求匹配却没自动衔接"的情况。
+     */
+    private _pullFromSlotsIfNeeded(type: DishType) {
+        const orders = this._orders!;
+        const slots = this._slots!;
+        const orderIdx = orders.findOrderIdx(type);
+        if (orderIdx < 0) return;
+        if (this._orderDishes[orderIdx].length >= 3) return;
+
+        const taken = slots.takeAllOfType(type);
+        for (const { dish } of taken) {
+            if (!dish || !dish.node || !dish.node.isValid) continue;
+            // 剥离到脚本根节点作为中立飞行容器，暂存槽 cell 视觉即刻清空
+            dish.node.setParent(this.node, true);
+            if (this._orderDishes[orderIdx].length >= 3) {
+                dish.node.destroy();
+                continue;
+            }
+            this._flyDishToOrder(dish, type, orderIdx, () => {});
+        }
+    }
+
+    /**
+     * 根据 dish 视觉尺寸 vs cell UITransform 尺寸，算出"刚好装入 cell"的缩放系数。
+     * 用较短维匹配 → 长条食材两端不溢出 cell。
+     */
+    private _computeFitScale(dish: DishItem, cell: Node): number {
+        const cellUI = cell.getComponent(UITransform);
+        if (!cellUI) return 1;
+        const vs = dish.visualSize;
+        if (vs.width <= 0 || vs.height <= 0) return 1;
+        return Math.min(cellUI.width / vs.width, cellUI.height / vs.height);
     }
 
     /**
@@ -604,12 +888,15 @@ export class PlayableSceneBuilder extends Component {
         const cellWp = targetCell.getWorldPosition();
         const targetWp = new Vec3(cellWp.x + triLocal.x, cellWp.y + triLocal.y, cellWp.z);
 
+        const orderFinalScale = this._computeFitScale(dish, targetCell) * this.orderDishScale;
         dish.flyToSlot(targetWp, () => {
             dish.settleAt(targetCell, triLocal, slotInTriangle);
             // 递增计数；若 reach need 会触发 OrderCompleted → _clearOrderDishes 销毁数组
             orders.contributeFromSlot(type, 1);
+            // 该 dish 到达后如订单仍未满，把暂存槽里同类食材继续拉进来
+            this._pullFromSlotsIfNeeded(type);
             onDone();
-        }, this.orderDishScale);
+        }, orderFinalScale);
     }
 
     /** 销毁某订单格上常驻的所有食材（订单完成或顾客切换时调用） */
@@ -622,15 +909,92 @@ export class PlayableSceneBuilder extends Component {
         this._orderDishes[orderIdx] = [];
     }
 
+    /**
+     * 启动新手引导：
+     *  1. 取首个订单类型，挑锅内该类型的 3 颗（优先浮层，再取沉层并顶上来）
+     *  2. 每颗调 setTutorialHighlight(true) 描边高亮
+     *  3. 手指 reparent 到脚本根 → 最上层，激活 + 呼吸缩放循环
+     */
+    private _startTutorial() {
+        if (this._tutorialActive) return;
+        if (!this._orders || !this._bowl) return;
+        if (!this.tutorialFinger) return;
+        const spec = this._level.initialOrders[0];
+        if (!spec) return;
+        const type = spec.type;
+
+        const all = this._bowl.getAllDishes();
+        // 优先浮层（可见），再取沉层；沉层同时顶上来保证可点
+        const surface = all.filter(d => d.dishType === type && (d.forceSurface || d.displayZOffset >= 0));
+        const submerged = all.filter(d => d.dishType === type && !d.forceSurface && d.displayZOffset < 0);
+        const picked = [...surface, ...submerged].slice(0, this.tutorialHighlightCount);
+        if (picked.length === 0) return;
+
+        for (const d of picked) {
+            d.setTutorialHighlight(true);
+            if (!d.forceSurface && d.displayZOffset < 0) d.raiseToSurface();
+        }
+        this._tutorialTargets = picked;
+        this._tutorialActive = true;
+
+        const finger = this.tutorialFinger;
+        finger.setParent(this.node, true);
+        finger.setSiblingIndex(this.node.children.length);
+        finger.active = true;
+        finger.setScale(1, 1, 1);
+        Tween.stopAllByTarget(finger);
+        const s = this.tutorialFingerBreathScale;
+        const dur = this.tutorialFingerBreathDur;
+        tween(finger)
+            .to(dur, { scale: new Vec3(s, s, 1) }, { easing: 'sineInOut' })
+            .to(dur, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
+            .union()
+            .repeatForever()
+            .start();
+    }
+
+    /**
+     * 玩家点中了任一高亮食材（可乱序）：清除该颗高亮并从剩余列表移除。
+     * 剩余为空时收尾。手指下一帧 update 自动指向新的 _tutorialTargets[0]。
+     */
+    private _tutorialAdvance(idx: number) {
+        if (!this._tutorialActive) return;
+        if (idx < 0 || idx >= this._tutorialTargets.length) return;
+        const dish = this._tutorialTargets[idx];
+        if (dish && dish.node && dish.node.isValid) dish.setTutorialHighlight(false);
+        this._tutorialTargets.splice(idx, 1);
+        if (this._tutorialTargets.length === 0) {
+            this._endTutorial();
+        }
+    }
+
+    /** 收尾：停手指 tween、隐藏手指、清残留高亮、重置状态 */
+    private _endTutorial() {
+        this._tutorialActive = false;
+        for (const d of this._tutorialTargets) {
+            if (d && d.node && d.node.isValid) d.setTutorialHighlight(false);
+        }
+        this._tutorialTargets = [];
+        const finger = this.tutorialFinger;
+        if (finger) {
+            Tween.stopAllByTarget(finger);
+            finger.active = false;
+        }
+    }
+
     private _fail() {
         if (this._gm!.state !== GameState.Play) return;
         this._gm!.setState(GameState.Fail);
-        if (this._failNode) this._failNode.active = true;
+        this._playSfx(this.sfxFail, this.sfxFailVolume);
+        this._showDimmer();
+        this._showOverlayWithBounce(this.failOverlay);
     }
 
     private _win() {
         if (this._gm!.state !== GameState.Play) return;
         this._gm!.setState(GameState.Win);
-        if (this._winNode) this._winNode.active = true;
+        this._playSfx(this.sfxWin, this.sfxWinVolume);
+        this._showDimmer();
+        this._showOverlayWithBounce(this.winOverlay);
     }
 }

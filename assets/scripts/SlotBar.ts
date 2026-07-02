@@ -148,6 +148,17 @@ export class SlotBar extends Component {
         return { full: false };
     }
 
+    /**
+     * 立即预占第一个空 cell（标记 type，dish 还未绑定）。tap 瞬间调用，
+     * 防止飞行 tween 期间再点同类食材抢占同一格。返回 idx，无空位返回 -1。
+     */
+    reserveEmpty(type: DishType): number {
+        const idx = this.findFirstEmptyIdx();
+        if (idx < 0) return -1;
+        this._cells[idx].type = type;
+        return idx;
+    }
+
     /** 在指定索引上登记类型 + 绑定 DishItem 引用（食材已经被 settleAt 落到 cell 节点下）。 */
     acceptDishAt(idx: number, type: DishType, dish: DishItem): { full: boolean } {
         if (idx < 0 || idx >= this._cells.length) return { full: false };

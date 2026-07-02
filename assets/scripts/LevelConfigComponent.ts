@@ -44,28 +44,6 @@ export class LevelConfigComponent extends Component {
     })
     bowlRadius: number = 320;
 
-    // ───────── 食材生成 ─────────
-    @property({
-        tooltip: '开局一次性投入锅内的食材数量。总食材=(initialOrders+orderPool).length×3',
-        range: [0, 100, 1],
-        slide: true,
-    })
-    initialBowlSpawnCount: number = 18;
-
-    @property({
-        tooltip: '每次补料投入的食材数量',
-        range: [1, 20, 1],
-        slide: true,
-    })
-    refillBatchSize: number = 4;
-
-    @property({
-        tooltip: '锅内剩余食材 ≤ 此值时触发一次 refill',
-        range: [0, 30, 1],
-        slide: true,
-    })
-    refillThreshold: number = 8;
-
     // ───────── 碰撞结算 ─────────
     @property({
         tooltip: '每帧占位分离迭代次数 [2~6]',
@@ -109,11 +87,18 @@ export class LevelConfigComponent extends Component {
     crossLayerSkipThreshold: number = 3;
 
     @property({
-        tooltip: '汤面分层阈值。displayZOffset ≥ 此值的食材渲染在汤面之上，小于此值的食材渲染在汤面之下。默认 2 → 香菜/葱/秋葵浮在汤面之上',
+        tooltip: '汤面分层阈值。displayZOffset ≥ 此值的食材渲染在汤面之上，小于此值的食材渲染在汤面之下。默认 2 → 香菜/大葱/黄瓜片/茄子/红椒浮在汤面之上',
         range: [-5, 5, 1],
         slide: true,
     })
     soupLayerCutoff: number = 2;
+
+    @property({
+        tooltip: '汤面之上（浮层）至少保留的食材数量。汤上层少于此值时，下层食材（越接近汤面越先）会自动浮上来补足',
+        range: [0, 30, 1],
+        slide: true,
+    })
+    surfaceMinCount: number = 6;
 
     // ───────── 生成节奏 ─────────
     @property({
@@ -122,13 +107,6 @@ export class LevelConfigComponent extends Component {
         slide: true,
     })
     spawnStagger: number = 0.025;
-
-    @property({
-        tooltip: '补料时相邻食材上浮动画错开间隔（秒）',
-        range: [0, 0.3, 0.01],
-        slide: true,
-    })
-    refillStagger: number = 0.08;
 
     @property({
         tooltip: '初始投放散点时食材间最小距离系数',
@@ -143,13 +121,6 @@ export class LevelConfigComponent extends Component {
         slide: true,
     })
     spawnRadiusFactor: number = 0.78;
-
-    @property({
-        tooltip: '补料有效半径系数（乘以 bowlRadius）',
-        range: [0.3, 1.0, 0.02],
-        slide: true,
-    })
-    refillRadiusFactor: number = 0.55;
 
     // ───────── 锅内氛围与浮动感 ─────────
     @property({
@@ -206,9 +177,6 @@ export class LevelConfigComponent extends Component {
             orderPool: this.orderPool,
             poolPickStrategy: this.poolPickStrategy,
             bowlRadius: this.bowlRadius,
-            initialBowlSpawnCount: this.initialBowlSpawnCount,
-            refillBatchSize: this.refillBatchSize,
-            refillThreshold: this.refillThreshold,
             resolveIterations: this.resolveIterations,
             maxPushPerIter: this.maxPushPerIter,
             overlapTolerance: this.overlapTolerance,
@@ -217,11 +185,10 @@ export class LevelConfigComponent extends Component {
             stackHeightFactor: this.stackHeightFactor,
             crossLayerSkipThreshold: this.crossLayerSkipThreshold,
             soupLayerCutoff: this.soupLayerCutoff,
+            surfaceMinCount: this.surfaceMinCount,
             spawnStagger: this.spawnStagger,
-            refillStagger: this.refillStagger,
             scatterMinDistFactor: this.scatterMinDistFactor,
             spawnRadiusFactor: this.spawnRadiusFactor,
-            refillRadiusFactor: this.refillRadiusFactor,
             idleBobAmplitude: this.idleBobAmplitude,
             idleBobFrequency: this.idleBobFrequency,
             ambientBubbleInterval: this.ambientBubbleInterval,

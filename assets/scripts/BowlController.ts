@@ -10,7 +10,6 @@ const { ccclass, property } = _decorator;
 
 export const BowlEvent = {
     DishTapped: 'bowl-dish-tapped',
-    LowOnDishes: 'bowl-low',
 } as const;
 
 @ccclass('BowlController')
@@ -19,8 +18,8 @@ export class BowlController extends Component {
     @property
     radius: number = 320;
 
-    @property
-    refillThreshold: number = 20;
+    /** 由 applyLevelConfig 下发 */
+    surfaceMinCount: number = 6;
 
     @property({ tooltip: '每帧分离迭代次数。2~4 之间。越大越快稳定但更耗 CPU。' })
     resolveIterations: number = 3;
@@ -36,7 +35,6 @@ export class BowlController extends Component {
     /** 汤水中间带节点，位于 dishLayer 内部，用于放置汤面序列帧动画 */
     private _soupLayer: Node | null = null;
     private _soupLayerCutoff: number = 2;
-    private _emittedLowOnce: boolean = false;
     private _edgeInset: number = 4;
     private _centerGravity: number = 0;
     private _stackHeightFactor: number = 0;
@@ -175,12 +173,12 @@ export class BowlController extends Component {
         this.resolveIterations = level.resolveIterations;
         this.maxPushPerIter    = level.maxPushPerIter;
         this.overlapTolerance  = level.overlapTolerance;
-        this.refillThreshold   = level.refillThreshold;
         this._edgeInset        = level.bowlEdgeInset;
         this._centerGravity    = level.centerGravity;
         this._stackHeightFactor = level.stackHeightFactor;
         this._crossLayerSkipThreshold = level.crossLayerSkipThreshold;
         this._soupLayerCutoff   = level.soupLayerCutoff;
+        this.surfaceMinCount    = level.surfaceMinCount;
         this._idleAmp          = level.idleBobAmplitude;
         this._idleFreq         = level.idleBobFrequency;
         this._springStiff      = level.springStiffness;
@@ -217,8 +215,6 @@ export class BowlController extends Component {
             xs[i] = dishes[i].posX;
             ys[i] = dishes[i].posY;
         }
-
-        const bumped = new Array<boolean>(N).fill(false);
 
         for (let iter = 0; iter < iters; iter++) {
             for (let i = 0; i < N; i++) {
@@ -276,10 +272,6 @@ export class BowlController extends Component {
                     ys[i] -= ny * pushI;
                     xs[j] += nx * pushJ;
                     ys[j] += ny * pushJ;
-
-                    // 触发视觉 squish 的阈值：1.5px 才算"被显著推到"，避免微小贴边触发整锅缩压抖动
-                    if (pushI > 1.5) bumped[i] = true;
-                    if (pushJ > 1.5) bumped[j] = true;
                 }
             }
 
@@ -327,11 +319,6 @@ export class BowlController extends Component {
             a.setPos(xs[i], ys[i]);
         }
 
-        // 反馈：本帧被显著推动的颗触发一次 bump（DishItem 内部带 0.22s 节流）
-        for (let i = 0; i < N; i++) {
-            if (bumped[i]) dishes[i].bumpFeedback();
-        }
-
         // Y 排序：低 Y → 高 siblingIndex（前层）。仅对 DishItem 节点排序，跳过气泡。
         this._sortByY();
     }
@@ -354,9 +341,20 @@ export class BowlController extends Component {
             }
             const dish = c.getComponent(DishItem);
             if (!dish) continue;
-            const yFactor = -c.position.y;
+            // 用 dish.posY（Active 时返回稳态 _baseY，Floating 时返回 tween 位置）
+            // 避免 idle bob 的正弦波让相邻食材的相对 y 反复交叉，产生高频遮挡闪烁
+            const yFactor = -dish.posY;
             const inner = yFactor + dish.displayZOffset * 60;
-            const sortKey = dish.displayZOffset >= cutoff ? (SOUP_BAND * 2 + inner) : inner;
+            let sortKey: number;
+            if (dish.isConsumed) {
+                // 被点击起飞的食材：飞行途中排到锅内所有食材之上，不被遮挡
+                sortKey = SOUP_BAND * 4 + inner;
+            } else if (dish.displayZOffset >= cutoff || dish.forceSurface) {
+                // 天然浮层食材 或 被 raiseToSurface 顶上来的下层食材，都归汤上带
+                sortKey = SOUP_BAND * 2 + inner;
+            } else {
+                sortKey = inner;
+            }
             list.push({ n: c, sortKey });
         }
         list.sort((a, b) => a.sortKey - b.sortKey);
@@ -449,15 +447,28 @@ export class BowlController extends Component {
         }
     }
 
+    /**
+     * 检查"顶层"（displayZOffset ≥ 0 或已 forceSurface 的可见食材）数是否低于 surfaceMinCount。
+     * 不足时从"次下层"往上补：把 displayZOffset < 0 的食材按 zOff 从大到小（-1 → -3 → -5 依次）
+     * 挑最靠近顶层的先浮上，浮上一颗算一颗，直到达到 surfaceMinCount 或下层耗尽。
+     * 每颗调 raiseToSurface() → 归汤上带 + fade in。
+     */
     checkLow() {
-        const n = this.aliveCount();
-        if (n <= this.refillThreshold) {
-            if (!this._emittedLowOnce) {
-                this._emittedLowOnce = true;
-                this.node.emit(BowlEvent.LowOnDishes, n);
-            }
-        } else {
-            this._emittedLowOnce = false;
+        if (!this._dishLayer) return;
+        const surface: DishItem[] = [];
+        const submerged: DishItem[] = [];
+        for (const c of this._dishLayer.children) {
+            const d = c.getComponent(DishItem);
+            if (!d || d.isConsumed) continue;
+            // 顶层：displayZOffset 为 0 或正（本来就浮在汤面附近）+ 之前已被顶上来的
+            if (d.forceSurface || d.displayZOffset >= 0) surface.push(d);
+            else submerged.push(d);
         }
+        const deficit = this.surfaceMinCount - surface.length;
+        if (deficit <= 0 || submerged.length === 0) return;
+        // 依次从次下层往上补：zOff 越接近 0（负值越大）越优先浮上
+        submerged.sort((a, b) => b.displayZOffset - a.displayZOffset);
+        const lift = Math.min(deficit, submerged.length);
+        for (let i = 0; i < lift; i++) submerged[i].raiseToSurface();
     }
 }

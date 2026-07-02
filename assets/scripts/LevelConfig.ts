@@ -9,17 +9,24 @@ const { ccclass, property } = _decorator;
 export enum DishType {
     卷心菜 = 0,
     西兰花 = 1,
-    小白菜 = 2,
+    花菜 = 2,
     香菜 = 3,
-    秋葵 = 4,
-    牛油果 = 5,
-    葱 = 6,
-    竹笋 = 7,
+    黄瓜片 = 4,
+    南瓜 = 5,
+    大葱 = 6,
+    柠檬片 = 7,
     青椒 = 8,
     生菜叶 = 9,
+    青菜 = 10,
+    芹菜 = 11,
+    哈密瓜 = 12,
+    茄子 = 13,
+    甜菜 = 14,
+    红椒 = 15,
+    洋葱片 = 16,
 }
 
-export const DISH_COUNT = 10;
+export const DISH_COUNT = 17;
 
 export interface DishMeta {
     type: DishType;
@@ -37,15 +44,6 @@ export interface DishMeta {
     upSpeed: number;
     /** 上浮过程横向漂移幅度（像素）。 */
     upDrift: number;
-    // ── 碰撞反馈动效参数（对应策划案第九节）──
-    /** 被碰撞时视觉压缩比例 [0~1]，如 0.12 = 压缩 12%，作用于 visualNode */
-    hitSquishScale: number;
-    /** 压缩 + 回弹完整动效时长（秒） */
-    hitSquishDuration: number;
-    /** 碰撞后摇摆最大角度（度） */
-    hitSwingAngle: number;
-    /** 摇摆衰减持续时间（秒） */
-    hitSwingDuration: number;
     /** 显示 Z 偏移（视觉层级微调）。大食材给负值（沉底），小食材给正值（浮顶）。默认 0 */
     displayZOffset: number;
 }
@@ -55,44 +53,55 @@ export interface DishMeta {
 export const DISH_META: ReadonlyArray<DishMeta> = [
     { type: DishType.卷心菜,   color: new Color(168, 222, 130, 255), radius: 72,
       weight: 3.0, elasticity: 0.18, damping: 0.65, rotationRange: 6,  upSpeed: 0.55, upDrift: 10,
-      hitSquishScale: 0.10, hitSquishDuration: 0.20, hitSwingAngle: 6,  hitSwingDuration: 0.40,
       displayZOffset: -5 },
     { type: DishType.西兰花,   color: new Color( 56, 122,  58, 255), radius: 70,
       weight: 3.0, elasticity: 0.16, damping: 0.70, rotationRange: 5,  upSpeed: 0.55, upDrift: 9,
-      hitSquishScale: 0.09, hitSquishDuration: 0.18, hitSwingAngle: 5,  hitSwingDuration: 0.38,
       displayZOffset: -5 },
-    { type: DishType.小白菜,   color: new Color(180, 226, 140, 255), radius: 60,
+    { type: DishType.花菜,     color: new Color(180, 226, 140, 255), radius: 60,
       weight: 2.4, elasticity: 0.22, damping: 0.55, rotationRange: 10, upSpeed: 0.48, upDrift: 14,
-      hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 12, hitSwingDuration: 0.48,
       displayZOffset: -1 },
     { type: DishType.香菜,     color: new Color( 78, 138,  62, 255), radius: 55,
       weight: 1.8, elasticity: 0.28, damping: 0.40, rotationRange: 18, upSpeed: 0.40, upDrift: 20,
-      hitSquishScale: 0.06, hitSquishDuration: 0.14, hitSwingAngle: 28, hitSwingDuration: 0.65,
       displayZOffset: 4 },
-    { type: DishType.秋葵,     color: new Color(108, 168,  78, 255), radius: 47,
+    { type: DishType.黄瓜片,   color: new Color(108, 168,  78, 255), radius: 47,
       weight: 1.6, elasticity: 0.26, damping: 0.45, rotationRange: 15, upSpeed: 0.40, upDrift: 18,
-      hitSquishScale: 0.08, hitSquishDuration: 0.16, hitSwingAngle: 22, hitSwingDuration: 0.58,
       displayZOffset: 2 },
-    { type: DishType.牛油果,   color: new Color(196, 168,  76, 255), radius: 62,
+    { type: DishType.南瓜,     color: new Color(196, 168,  76, 255), radius: 62,
       weight: 2.6, elasticity: 0.20, damping: 0.55, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
-      hitSquishScale: 0.11, hitSquishDuration: 0.20, hitSwingAngle: 8,  hitSwingDuration: 0.42,
       displayZOffset: -3 },
-    { type: DishType.葱,       color: new Color(238, 240, 196, 255), radius: 50,
+    { type: DishType.大葱,     color: new Color(238, 240, 196, 255), radius: 50,
       weight: 1.5, elasticity: 0.30, damping: 0.40, rotationRange: 22, upSpeed: 0.38, upDrift: 22,
-      hitSquishScale: 0.07, hitSquishDuration: 0.14, hitSwingAngle: 32, hitSwingDuration: 0.70,
       displayZOffset: 4 },
-    { type: DishType.竹笋,     color: new Color(236, 222, 168, 255), radius: 60,
+    { type: DishType.柠檬片,   color: new Color(236, 222, 168, 255), radius: 60,
       weight: 2.5, elasticity: 0.18, damping: 0.60, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
-      hitSquishScale: 0.10, hitSquishDuration: 0.19, hitSwingAngle: 9,  hitSwingDuration: 0.43,
       displayZOffset: -3 },
     { type: DishType.青椒,     color: new Color(110, 174,  86, 255), radius: 57,
       weight: 2.3, elasticity: 0.22, damping: 0.50, rotationRange: 10, upSpeed: 0.45, upDrift: 15,
-      hitSquishScale: 0.12, hitSquishDuration: 0.21, hitSwingAngle: 11, hitSwingDuration: 0.47,
       displayZOffset: 0 },
     { type: DishType.生菜叶,   color: new Color(174, 220, 138, 255), radius: 57,
       weight: 2.2, elasticity: 0.24, damping: 0.50, rotationRange: 12, upSpeed: 0.45, upDrift: 16,
-      hitSquishScale: 0.13, hitSquishDuration: 0.22, hitSwingAngle: 14, hitSwingDuration: 0.50,
       displayZOffset: 0 },
+    { type: DishType.青菜,     color: new Color(224,  92,  72, 255), radius: 60,
+      weight: 2.5, elasticity: 0.24, damping: 0.55, rotationRange: 8,  upSpeed: 0.50, upDrift: 12,
+      displayZOffset: -3 },
+    { type: DishType.芹菜,     color: new Color(244, 208,  78, 255), radius: 68,
+      weight: 2.8, elasticity: 0.16, damping: 0.65, rotationRange: 5,  upSpeed: 0.55, upDrift: 9,
+      displayZOffset: -5 },
+    { type: DishType.哈密瓜,   color: new Color(198, 168, 132, 255), radius: 55,
+      weight: 2.0, elasticity: 0.22, damping: 0.55, rotationRange: 10, upSpeed: 0.48, upDrift: 14,
+      displayZOffset: 0 },
+    { type: DishType.茄子,     color: new Color( 62,  46,  40, 255), radius: 48,
+      weight: 1.4, elasticity: 0.30, damping: 0.42, rotationRange: 20, upSpeed: 0.40, upDrift: 20,
+      displayZOffset: 3 },
+    { type: DishType.甜菜,     color: new Color(238, 226, 198, 255), radius: 55,
+      weight: 1.8, elasticity: 0.24, damping: 0.50, rotationRange: 12, upSpeed: 0.45, upDrift: 15,
+      displayZOffset: 0 },
+    { type: DishType.红椒,     color: new Color(238, 224, 168, 255), radius: 45,
+      weight: 1.2, elasticity: 0.30, damping: 0.38, rotationRange: 22, upSpeed: 0.38, upDrift: 22,
+      displayZOffset: 4 },
+    { type: DishType.洋葱片,   color: new Color(246, 242, 220, 255), radius: 58,
+      weight: 2.2, elasticity: 0.20, damping: 0.55, rotationRange: 7,  upSpeed: 0.50, upDrift: 12,
+      displayZOffset: -2 },
 ];
 
 @ccclass('OrderSpec')
@@ -134,20 +143,6 @@ export interface LevelData {
     /** 锅的物理半径（像素）。同时决定可视绘图尺寸、UI 容器、边界推回与散点基准。默认 320 */
     bowlRadius: number;
 
-    // ── 食材生成 ───────────────────────────────────────────
-    /**
-     * 开局一次性投入锅内的食材数量
-     * 总食材 = (initialOrders.length + orderPool.length) × DEFAULT_ORDER_NEED
-     * 剩余食材 = 总食材 - initialBowlSpawnCount，分多次 refill 补完
-     */
-    initialBowlSpawnCount: number;
-
-    /** 每次补料投入的食材数量（达到 refillThreshold 时触发） */
-    refillBatchSize: number;
-
-    /** 锅内剩余食材 ≤ 此值时触发一次 refill */
-    refillThreshold: number;
-
     // ── 碰撞结算全局参数（驱动 BowlController）──────────────
     /** 每帧占位分离迭代次数 [2~6]，越大越稳定越耗 CPU。默认 3 */
     resolveIterations: number;
@@ -174,21 +169,22 @@ export interface LevelData {
     crossLayerSkipThreshold: number;
     /**
      * 汤面中间带的分层阈值。displayZOffset ≥ 此值的食材渲染在汤面之上（漂浮顶层），
-     * 小于此值的食材渲染在汤面之下（淹没底层）。默认 2 → 香菜/葱/秋葵浮在汤面，其它沉底
+     * 小于此值的食材渲染在汤面之下（淹没底层）。默认 2 → 香菜/大葱/黄瓜片/茄子/红椒浮在汤面，其它沉底
      */
     soupLayerCutoff: number;
+    /**
+     * 汤面之上（浮层）至少保留的食材数量。当汤上层少于此值时，下层食材（displayZOffset 越大越优先）
+     * 会自动 raiseToSurface 浮上来补足，替代旧的 refill 机制。默认 6
+     */
+    surfaceMinCount: number;
 
     // ── 生成节奏参数（驱动 BowlSpawner）─────────────────────
     /** 初始投放时相邻食材上浮动画错开间隔（秒）。默认 0.025 */
     spawnStagger: number;
-    /** 补料时相邻食材上浮动画错开间隔（秒）。默认 0.08 */
-    refillStagger: number;
     /** 初始投放散点时食材间最小距离系数 [0.5~1.2]。默认 0.85 */
     scatterMinDistFactor: number;
     /** 初始投放有效半径系数（乘以 bowlRadius）。默认 0.78 */
     spawnRadiusFactor: number;
-    /** 补料有效半径系数（乘以 bowlRadius）。默认 0.60 */
-    refillRadiusFactor: number;
 
     // ── 锅内氛围与浮动感参数（驱动 BowlController + DishItem）─────
     /** Idle 微动幅度（像素）。每个食材独立 sin 波摆动幅度。0 = 关闭。默认 1.8 */
@@ -216,16 +212,16 @@ export const LEVEL_1: LevelData = {
     initialOrders: [
         Object.assign(new OrderSpec(), { type: DishType.卷心菜, need: 3 }),
         Object.assign(new OrderSpec(), { type: DishType.西兰花, need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.牛油果, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.南瓜, need: 3 }),
         Object.assign(new OrderSpec(), { type: DishType.香菜,   need: 3 }),
     ],
 
     // 订单池 6 单，按顺序抽取
     orderPool: [
-        Object.assign(new OrderSpec(), { type: DishType.小白菜, need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.秋葵,   need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.葱,     need: 3 }),
-        Object.assign(new OrderSpec(), { type: DishType.竹笋,   need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.花菜, need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.黄瓜片,   need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.大葱,     need: 3 }),
+        Object.assign(new OrderSpec(), { type: DishType.柠檬片,   need: 3 }),
         Object.assign(new OrderSpec(), { type: DishType.青椒,   need: 3 }),
         Object.assign(new OrderSpec(), { type: DishType.生菜叶, need: 3 }),
     ],
@@ -233,11 +229,6 @@ export const LEVEL_1: LevelData = {
 
     // 锅半径
     bowlRadius: 320,
-
-    // 总食材 30 = 开局 18 + 补料 12（每次 4，共 3 次）
-    initialBowlSpawnCount: 18,
-    refillBatchSize: 4,
-    refillThreshold: 8,
 
     // 碰撞结算：moderate 推力 + 中等重叠 + 中心引力 → 多颗+堆叠感
     resolveIterations: 2,
@@ -248,13 +239,12 @@ export const LEVEL_1: LevelData = {
     stackHeightFactor: 18,
     crossLayerSkipThreshold: 3,
     soupLayerCutoff: 2,
+    surfaceMinCount: 6,
 
     // 生成节奏
     spawnStagger: 0.025,
-    refillStagger: 0.08,
     scatterMinDistFactor: 0.55,
     spawnRadiusFactor: 0.78,
-    refillRadiusFactor: 0.55,
 
     // 锅内氛围与浮动感
     idleBobAmplitude: 1.2,

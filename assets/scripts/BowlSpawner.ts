@@ -1,7 +1,6 @@
 import { _decorator, Component, Vec3 } from 'cc';
 import { BowlController } from './BowlController';
-import { DishType, DISH_META, LevelData, DEFAULT_ORDER_NEED } from './LevelConfig';
-import { DishItem } from './DishItem';
+import { DishType, LevelData, DEFAULT_ORDER_NEED } from './LevelConfig';
 import { DishSpriteVariants, buildDishProfile } from './ArtTypes';
 
 const { ccclass, property } = _decorator;
@@ -14,18 +13,19 @@ export class BowlSpawner extends Component {
 
     dishVariants: DishSpriteVariants[] = [];
 
-    private _pendingSpawnQueue: DishType[] = [];
-
     private _profile(type: DishType) {
         // 按 type 字段匹配 variant 槽，数组顺序与 DishType 索引解耦
         const variant = this.dishVariants.find(v => v && v.type === type) ?? null;
         return buildDishProfile(type, variant);
     }
 
+    /**
+     * 一次性生成所有订单需要的食材（不再有 refill / pending queue）。
+     * 汤下食材靠 BowlController.checkLow → raiseToSurface 机制在上层不足时浮上。
+     */
     spawnInitial(level: LevelData, allOrderTypes: DishType[]) {
         if (!this.bowl) return;
 
-        // 按订单类型展开：每个订单贡献 DEFAULT_ORDER_NEED 个食材
         const allTypesExpanded: DishType[] = [];
         for (const t of allOrderTypes) {
             for (let k = 0; k < DEFAULT_ORDER_NEED; k++) {
@@ -34,60 +34,24 @@ export class BowlSpawner extends Component {
         }
         this._shuffleArr(allTypesExpanded);
 
-        // 切分：前 initialBowlSpawnCount 个开局投放，剩余进入补料队列
-        const initialItems = allTypesExpanded.slice(0, level.initialBowlSpawnCount);
-        this._pendingSpawnQueue = allTypesExpanded.slice(level.initialBowlSpawnCount);
-
         console.log('[BowlSpawner] spawnInitial:',
             'allTypes=', allOrderTypes.length,
-            'expanded=', allTypesExpanded.length,
-            'spawning=', initialItems.length,
-            'queue=', this._pendingSpawnQueue.length);
+            'total=', allTypesExpanded.length);
 
         const positions = this._scatterPositions(
-            initialItems.length,
+            allTypesExpanded.length,
             this.bowl.bowlRadius * level.spawnRadiusFactor,
             level.scatterMinDistFactor,
         );
-        for (let i = 0; i < initialItems.length; i++) {
+        for (let i = 0; i < allTypesExpanded.length; i++) {
             const p = positions[i];
-            const type = initialItems[i];
+            const type = allTypesExpanded[i];
             const profile = this._profile(type);
             const target = new Vec3(p.x, p.y, 0);
             const dish = this.bowl.spawnDish(null, profile, target);
             dish.floatUpFromCenter(target, i * level.spawnStagger);
         }
         this.bowl.spawnBubbles(10);
-    }
-
-    refill(level: LevelData): DishItem[] {
-        if (!this.bowl) return [];
-        if (this._pendingSpawnQueue.length === 0) return [];
-
-        const batch = Math.min(level.refillBatchSize, this._pendingSpawnQueue.length);
-        const types = this._pendingSpawnQueue.splice(0, batch);
-
-        const r = this.bowl.bowlRadius * level.refillRadiusFactor;
-        const out: DishItem[] = [];
-        for (let i = 0; i < types.length; i++) {
-            const a = Math.random() * Math.PI * 2;
-            const d = Math.sqrt(Math.random()) * r;
-            const x = Math.cos(a) * d;
-            const y = Math.sin(a) * d;
-            const target = new Vec3(x, y, 0);
-            const type = types[i];
-            const profile = this._profile(type);
-            const dish = this.bowl.spawnDish(null, profile, target);
-            dish.floatUpFromCenter(target, i * level.refillStagger);
-            out.push(dish);
-        }
-        this.bowl.spawnBubbles(Math.max(4, types.length));
-        return out;
-    }
-
-    /** 剩余还需补料的食材数量 */
-    getPendingSpawnCount(): number {
-        return this._pendingSpawnQueue.length;
     }
 
     private _shuffleArr<T>(arr: T[]) {

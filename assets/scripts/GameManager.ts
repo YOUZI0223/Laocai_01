@@ -14,8 +14,6 @@ export const GameEvent = {
     DishCollected: 'dish-collected',
     OrderCompleted: 'order-completed',
     OrderRefreshed: 'order-refreshed',
-    BowlNeedRefill: 'bowl-need-refill',
-    BowlRefilled: 'bowl-refilled',
     Win: 'win',
     Fail: 'fail',
 } as const;

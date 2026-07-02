@@ -57,10 +57,6 @@ export interface DishProfile {
     upSpeed: number;
     upDrift: number;
     sprite: SpriteFrame | null;
-    hitSquishScale: number;
-    hitSquishDuration: number;
-    hitSwingAngle: number;
-    hitSwingDuration: number;
     displayZOffset: number;
 }
 
@@ -89,10 +85,6 @@ export function buildDishProfile(type: DishType, variant: DishSpriteVariants | n
         upSpeed: pickN(variant?.upSpeed ?? 0, meta.upSpeed),
         upDrift: pickN(variant?.upDrift ?? 0, meta.upDrift),
         sprite: pickSprite(variant?.sprites),
-        hitSquishScale:    meta.hitSquishScale,
-        hitSquishDuration: meta.hitSquishDuration,
-        hitSwingAngle:     meta.hitSwingAngle,
-        hitSwingDuration:  meta.hitSwingDuration,
         displayZOffset:    variant?.overrideZOffset ? variant.displayZOffset : meta.displayZOffset,
     };
 }

@@ -1,6 +1,6 @@
 import {
     _decorator, Component, Node, UITransform, Graphics, Color, Vec3, EventTouch,
-    Tween, tween, UIOpacity, Sprite, SpriteFrame, director,
+    Tween, tween, UIOpacity, Sprite, SpriteFrame,
 } from 'cc';
 import { DishType, DISH_META } from './LevelConfig';
 import { DishProfile } from './ArtTypes';
@@ -32,19 +32,14 @@ export class DishItem extends Component {
     private _rotationRange: number = 12;
     private _upSpeed: number = 0.5;
     private _upDrift: number = 14;
-    private _hitSquishScale: number    = 0.12;
-    private _hitSquishDuration: number = 0.20;
-    private _hitSwingAngle: number     = 12;
-    private _hitSwingDuration: number  = 0.45;
-
     private _state: DishPhysicsState = DishPhysicsState.Active;
     private _consumed: boolean = false;
 
-    // 反馈节流：基于 director 总时间（秒）
-    private _lastBumpAt: number = -1;
-
-    // 视觉子节点，bumpFeedback 作用在这里，避免和位置/上浮 tween 冲突
+    // 视觉子节点，承担 Sprite 渲染；外层 node 只做位置/旋转
     private _visualNode: Node | null = null;
+
+    // 新手引导描边高亮层（挂在 this.node 下，视觉之后；圆环 + 呼吸 tween）
+    private _tutorialGlow: Node | null = null;
 
     // ── Idle 微动 ──
     private _idleAmp: number = 0;
@@ -67,6 +62,13 @@ export class DishItem extends Component {
     private _displayZOffset: number = 0;
     get displayZOffset(): number { return this._displayZOffset; }
 
+    // 强制浮到汤面之上（下层食材因上层减少被顶上来的机制）。为 true 时 _sortByY 归汤上带
+    private _forceSurface: boolean = false;
+    get forceSurface(): boolean { return this._forceSurface; }
+
+    // 稳态朝向（0~360°），每颗食材落位后保持这个角度，让锅里方向感更随机
+    private _baseRotation: number = 0;
+
     // ── 视觉堆叠：把 _displayZOffset 乘以这个数得到 Y 方向像素偏移，让大食材沉底、小食材压顶
     private _stackHeightFactor: number = 0;
     /** 当前食材最终 Y 偏移（已含正负号）。floatUpFromCenter 拿来调整目标 Y */
@@ -77,6 +79,17 @@ export class DishItem extends Component {
     get radius(): number { return this._visualR; }
     /** 占位分离用的碰撞半径（可能 ≠ 显示半径）。 */
     get collRadius(): number { return this._collR; }
+    /**
+     * 视觉子节点的实际 UITransform 尺寸（保留了原图长宽比）。
+     * 供外部计算"缩放多少才能装入 cell"用。
+     */
+    get visualSize(): { width: number; height: number } {
+        if (this._visualNode) {
+            const vui = this._visualNode.getComponent(UITransform);
+            if (vui) return { width: vui.width, height: vui.height };
+        }
+        return { width: this._visualR * 2, height: this._visualR * 2 };
+    }
     get weight(): number { return this._weight; }
     get isConsumed(): boolean { return this._consumed; }
     get isFloating(): boolean { return this._state === DishPhysicsState.Floating; }
@@ -102,12 +115,9 @@ export class DishItem extends Component {
         this._rotationRange = profile.rotationRange;
         this._upSpeed = profile.upSpeed;
         this._upDrift = profile.upDrift;
-        this._hitSquishScale    = profile.hitSquishScale;
-        this._hitSquishDuration = profile.hitSquishDuration;
-        this._hitSwingAngle     = profile.hitSwingAngle;
-        this._hitSwingDuration  = profile.hitSwingDuration;
         this._displayZOffset    = profile.displayZOffset;
         this._idlePhase         = Math.random() * Math.PI * 2;
+        this._baseRotation      = Math.random() * 360;
         // 兜底：用 spawnDish 设置的初始位置作为 _baseX/Y，防止任何不走 floatUpFromCenter 的代码路径让 posX/Y 错误返回 (0,0)
         this._baseX             = this.node.position.x;
         this._baseY             = this.node.position.y;
@@ -117,6 +127,12 @@ export class DishItem extends Component {
 
         const meta = DISH_META[this._type];
         this._buildVisual(meta.color, profile.sprite);
+
+        // 命中范围与视觉图对齐（长条食材按较长边算，避免图两端点击无反应）
+        if (this._visualNode) {
+            const vui = this._visualNode.getComponent(UITransform);
+            if (vui) ui.setContentSize(vui.width, vui.height);
+        }
 
         this.node.on(Node.EventType.TOUCH_END, this._onTap, this);
     }
@@ -134,7 +150,11 @@ export class DishItem extends Component {
             sp.sizeMode = Sprite.SizeMode.CUSTOM;
             sp.type = Sprite.Type.SIMPLE;
             sp.spriteFrame = sf;
-            vui.setContentSize(this._visualR * 2, this._visualR * 2);
+            // 保持原图长宽比：按较短边匹配到 radius*2，长条图会横向超出碰撞圆，视觉更饱满
+            const rect = sf.rect;
+            const target = this._visualR * 2;
+            const s = target / Math.min(rect.width, rect.height);
+            vui.setContentSize(rect.width * s, rect.height * s);
             return;
         }
 
@@ -160,10 +180,10 @@ export class DishItem extends Component {
         opacity.opacity = 0;
         Tween.stopAllByTarget(opacity);
 
-        // 起始：锅心，缩到很小，带初始旋转
+        // 起始：锅心，缩到很小，围绕稳态朝向做初始摆动
         this.node.setPosition(0, 0, 0);
         this.node.setScale(0.18, 0.18, 1);
-        const startRot = (Math.random() - 0.5) * this._rotationRange * 2;
+        const startRot = this._baseRotation + (Math.random() - 0.5) * this._rotationRange * 2;
         this.node.eulerAngles = new Vec3(0, 0, startRot);
 
         // 终点叠加视觉堆叠偏移：负 displayZOffset 把大食材推向高 Y（屏幕远端），正 zOff 把小食材推向低 Y（屏幕近端）
@@ -174,7 +194,7 @@ export class DishItem extends Component {
         const driftX = (Math.random() - 0.5) * 2 * this._upDrift;
         const midX = finalX * 0.55 + driftX;
         const midY = finalY * 0.55 + this._visualR * 0.4;
-        const midRot = (Math.random() - 0.5) * this._rotationRange;
+        const midRot = this._baseRotation + (Math.random() - 0.5) * this._rotationRange;
 
         const dur = this._upSpeed;
 
@@ -188,7 +208,7 @@ export class DishItem extends Component {
             .to(dur * 0.25, {
                 position: new Vec3(finalX, finalY, 0),
                 scale: new Vec3(1.0, 1.0, 1),
-                eulerAngles: new Vec3(0, 0, 0),
+                eulerAngles: new Vec3(0, 0, this._baseRotation),
             }, { easing: 'sineInOut' })
             .call(() => {
                 // 上浮结束：写入终点并同步 _baseX/Y，避免下一帧 update 把食材弹回原点 (0,0)
@@ -277,39 +297,90 @@ export class DishItem extends Component {
     }
 
     /**
-     * 被推时触发的视觉反馈：压缩 → 回弹 → 摇摆。
-     * 节流：同颗食材 0.22s 内只播一次，避免连续抖动。
+     * 让这颗食材"浮出汤面"：
+     *  1. 标记 forceSurface（_sortByY 里归汤上带）
+     *  2. UIOpacity 从当前值 fade in 到 255
+     *  3. 位置从 _baseY 向上顶 riseHeight px 再回落，配合 scale 弹跳
+     *     期间进入 Floating 状态 → resolveAll 只让它推别人不被挤 → 路径上的其他食材被自然推开
      */
-    bumpFeedback() {
-        if (this._consumed || this.isFloating) return;
-        if (!this._visualNode) return;
-        const now = director.getTotalTime() / 1000;
-        if (this._lastBumpAt > 0 && now - this._lastBumpAt < 0.15) return;
-        this._lastBumpAt = now;
+    raiseToSurface(dur: number = 0.55, riseHeight: number = 55) {
+        if (this._forceSurface) return;
+        this._forceSurface = true;
 
-        const target = this._visualNode;
-        const squish  = this._hitSquishScale;
-        const dur     = this._hitSquishDuration;
-        const swing   = this._hitSwingAngle * (Math.random() > 0.5 ? 1 : -1);
-        const swingDur = this._hitSwingDuration;
-        const damping  = this._damping;
-        const durScale = Math.max(0.4, 1 - damping * 0.6);
+        // fade in
+        const op = this.getComponent(UIOpacity) ?? this.addComponent(UIOpacity);
+        Tween.stopAllByTarget(op);
+        tween(op).to(dur, { opacity: 255 }, { easing: 'sineOut' }).start();
 
-        Tween.stopAllByTarget(target);
-        tween(target)
-            .to(dur * 0.3 * durScale, {
-                scale: new Vec3(1 + squish * 0.5, 1 - squish * 0.5, 1),
-                eulerAngles: new Vec3(0, 0, swing),
+        // 位置动画 + Floating 状态：模拟"从下顶上来"，把路径上其他食材推开
+        const startX = this._baseX;
+        const startY = this._baseY;
+        const peakY  = startY + riseHeight;
+        this._state = DishPhysicsState.Floating;
+        Tween.stopAllByTarget(this.node);
+        tween(this.node)
+            .to(dur * 0.55, {
+                position: new Vec3(startX, peakY, 0),
+                scale:    new Vec3(1.15, 1.15, 1),
+            }, { easing: 'sineOut' })
+            .to(dur * 0.45, {
+                position: new Vec3(startX, startY, 0),
+                scale:    new Vec3(1, 1, 1),
+            }, { easing: 'sineIn' })
+            .call(() => {
+                // 恢复 Active，重新参与占位分离；稳态位置回到原 baseX/Y
+                this._state = DishPhysicsState.Active;
+                this.setPosImmediate(startX, startY);
             })
-            .to(dur * 0.4 * durScale, {
-                scale: new Vec3(1 - squish * 0.3, 1 + squish * 0.3, 1),
-                eulerAngles: new Vec3(0, 0, -swing * 0.5),
-            })
-            .to(swingDur * durScale, {
-                scale: new Vec3(1, 1, 1),
-                eulerAngles: new Vec3(0, 0, 0),
-            }, { easing: 'backOut' })
             .start();
+    }
+
+    /**
+     * 新手引导用的描边高亮：外层 node 下追加一个圆环 Graphics，做呼吸缩放 + 透明度循环。
+     * on = true 时若已存在则不重建；on = false 时销毁并停止 tween。
+     */
+    setTutorialHighlight(on: boolean) {
+        if (on) {
+            if (this._tutorialGlow) return;
+            const glow = new Node('tutorial-glow');
+            glow.layer = this.node.layer;
+            this.node.addChild(glow);
+            // sibling idx 0 → 排到最底，被 visual 覆盖，但半径大于 visual 所以露出一圈
+            glow.setSiblingIndex(0);
+            const gui = glow.addComponent(UITransform);
+            const vs = this.visualSize;
+            const r = Math.max(vs.width, vs.height) * 0.5 + 10;
+            gui.setContentSize(r * 2, r * 2);
+            const gfx = glow.addComponent(Graphics);
+            gfx.lineWidth = 5;
+            gfx.strokeColor = new Color(255, 220, 80, 255);
+            gfx.fillColor = new Color(255, 220, 80, 55);
+            gfx.circle(0, 0, r);
+            gfx.fill();
+            gfx.stroke();
+            const op = glow.addComponent(UIOpacity);
+            op.opacity = 255;
+            tween(op)
+                .to(0.55, { opacity: 150 }, { easing: 'sineInOut' })
+                .to(0.55, { opacity: 255 }, { easing: 'sineInOut' })
+                .union()
+                .repeatForever()
+                .start();
+            tween(glow)
+                .to(0.55, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineInOut' })
+                .to(0.55, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineInOut' })
+                .union()
+                .repeatForever()
+                .start();
+            this._tutorialGlow = glow;
+        } else {
+            if (!this._tutorialGlow) return;
+            Tween.stopAllByTarget(this._tutorialGlow);
+            const op = this._tutorialGlow.getComponent(UIOpacity);
+            if (op) Tween.stopAllByTarget(op);
+            this._tutorialGlow.destroy();
+            this._tutorialGlow = null;
+        }
     }
 
     private _onTap(e: EventTouch) {
@@ -331,15 +402,46 @@ export class DishItem extends Component {
 
         const parent = this.node.parent!;
         const localTarget = parent.getComponent(UITransform)!.convertToNodeSpaceAR(worldPos);
+        const startPos = this.node.position.clone();
+
+        // 抛物中点：起点/终点连线中点上方偏移 → 形成上抛弧线
+        const dx = localTarget.x - startPos.x;
+        const dy = localTarget.y - startPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const arcHeight = Math.max(80, dist * 0.32);
+        const midPos = new Vec3(
+            (startPos.x + localTarget.x) * 0.5,
+            (startPos.y + localTarget.y) * 0.5 + arcHeight,
+            0,
+        );
+
+        // 中点放大系数：让飞到"高空"时看起来更大更靠近相机，模拟透视
+        const midScale = Math.max(1.4, finalScale * 1.8);
+        const undershoot = finalScale * 0.9;
 
         Tween.stopAllByTarget(this.node);
-        if (this._visualNode) Tween.stopAllByTarget(this._visualNode);
+        if (this._visualNode) {
+            Tween.stopAllByTarget(this._visualNode);
+            // 兜底：任何残留的子节点摆动/缩放 tween 停掉，保证落到订单/暂存槽时视觉是"原始朝上"
+            this._visualNode.eulerAngles = new Vec3(0, 0, 0);
+            this._visualNode.setScale(1, 1, 1);
+        }
 
-        const undershoot = finalScale * 0.9;
         tween(this.node)
+            // 起手：拉起 → 稍微膨胀准备起飞
             .to(0.08, { scale: new Vec3(1.2, 1.2, 1) })
-            .to(0.28, { position: localTarget }, { easing: 'cubicIn' })
-            .to(0.08, { scale: new Vec3(undershoot, undershoot, 1) })
+            // 上升段：sineIn（起点缓慢加速 → 中点速度最大），旋转 tween 回 0
+            .to(0.24, {
+                position: midPos,
+                scale: new Vec3(midScale, midScale, 1),
+                eulerAngles: new Vec3(0, 0, 0),
+            }, { easing: 'sineIn' })
+            // 下降段：sineOut（中点速度最大 → 终点缓慢减速），与上升段在中点速度连续
+            .to(0.24, {
+                position: localTarget,
+                scale: new Vec3(undershoot, undershoot, 1),
+            }, { easing: 'sineOut' })
+            // 落定：弹回目标 scale
             .to(0.08, { scale: new Vec3(finalScale, finalScale, 1) })
             .call(() => onArrive())
             .start();
